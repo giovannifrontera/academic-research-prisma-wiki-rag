@@ -1,6 +1,9 @@
 # ── PRISMA workflow — MCP servers ──────────────────────────────
 mcp>=1.0.0
 
+# ── hybrid-rag — PDF indexing (installed dynamically by hybrid_rag.py init) ──
+PyMuPDF>=1.23.0
+
 # ── Wiki system (OpenClaw) ──────────────────────────────────────
 lancedb>=0.6.0
 sentence-transformers>=3.0.0

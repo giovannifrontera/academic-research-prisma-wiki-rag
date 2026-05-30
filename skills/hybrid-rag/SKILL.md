@@ -1,6 +1,6 @@
 ---
 name: hybrid-rag
-description: Use when creating, updating, or querying a local Hybrid RAG database from PRISMA JSON metadata or PDF documents in a folder. Triggered by prisma-review (after Fase 4) or edtech-pilot-design (to query evidence). Hybrid RAG combines dense vector search (sentence-transformers) and sparse retrieval — native FTS via LanceDB (recommended) or BM25 — fused with Reciprocal Rank Fusion. Results are displayed as Markdown.
+description: Use when creating, updating, or querying a local Hybrid RAG database from PRISMA JSON metadata or PDF documents in a folder. Triggered by prisma-review (after Fase 4) or educational-pilot-design (to query evidence). Hybrid RAG combines dense vector search (sentence-transformers) and sparse retrieval — native FTS via LanceDB (recommended) or BM25 — fused with Reciprocal Rank Fusion. Results are displayed as Markdown.
 ---
 
 # Hybrid RAG — Ricerche Accademiche
@@ -143,7 +143,7 @@ py hybrid_rag.py query "self-regulated learning effect size chatbot" --n 5
 Se l'utente ha PDF manuali da aggiungere, chiedi:
 > "Hai documenti PDF aggiuntivi da includere nel RAG (es. paper scaricati manualmente, linee guida, documenti ministeriali)? Se sì, indicami il percorso della cartella."
 
-### Da edtech-pilot-design
+### Da educational-pilot-design
 
 In qualsiasi fase, per recuperare evidenze dalla letteratura:
 ```bash

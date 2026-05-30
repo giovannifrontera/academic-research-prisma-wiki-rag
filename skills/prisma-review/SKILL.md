@@ -91,7 +91,7 @@ Creato alla Fase 4, aggiornato progressivamente man mano che si analizza ogni pa
 [osservazioni metodologiche, bias rilevati]
 
 ---
-## OUTPUT PER PILOT STUDY — Sezione dedicata al handoff verso edtech-pilot-design
+## OUTPUT PER PILOT STUDY — Sezione dedicata al handoff verso educational-pilot-design
 
 ### Effect size aggregati
 | Outcome | N studi | Effect size medio (d/η²) | Range | IC 95% | Qualità evidenza |
@@ -122,7 +122,7 @@ Creato alla Fase 4, aggiornato progressivamente man mano che si analizza ogni pa
 
 ### Durata tipica degli interventi
 [Range osservato: min–max settimane; mediana]
-> Usa questo dato per pianificare la timeline realistica del pilot (Fase 4 edtech-pilot-design).
+> Usa questo dato per pianificare la timeline realistica del pilot (Fase 4 educational-pilot-design).
 ```
 
 ### 4. `prisma_bibliography.md` — bibliografia annotata completa
@@ -238,6 +238,8 @@ Se sì:
 > ⚠️ **Deduplicazione cross-stream:** un PDF manuale potrebbe duplicare un record già presente nei database. Lo script di Fase 2 gestirà questa deduplicazione automaticamente per DOI e titolo normalizzato.
 
 ### 0.8 — Wiki System (OpenClaw)
+
+> ⚠️ **CWD per i comandi wiki:** tutti i comandi `py wiki/scripts/wiki.py` devono essere eseguiti dalla **radice del repo** `academic-research-prisma-wiki-rag/`, non dalla cartella di lavoro della review. Se necessario, usa il path assoluto: `py <path-assoluto-repo>/wiki/scripts/wiki.py ...`
 
 > "Stai usando il sistema wiki OpenClaw per questa ricerca? Se sì, indica il percorso assoluto della cartella wiki workspace (es. `C:/Users/nome/wiki-data/ricerca` o il path configurato in `wiki.config.json`)"
 
@@ -606,7 +608,7 @@ Confermi di proseguire con i prossimi 10 paper?
 ```
 Aspetta conferma utente prima di continuare.
 
-> ⚠️ **La sezione "OUTPUT PER PILOT STUDY" di `prisma_synthesis.md` è il meccanismo di handoff verso `edtech-pilot-design`.** Aggiornarla paper per paper (o almeno a ogni checkpoint) è obbligatorio — se viene lasciata vuota, la skill `edtech-pilot-design` non riceve le informazioni bibliografiche e deve chiederle manualmente. Questo garantisce che i file siano salvati anche se la sessione si interrompe.
+> ⚠️ **La sezione "OUTPUT PER PILOT STUDY" di `prisma_synthesis.md` è il meccanismo di handoff verso `educational-pilot-design`.** Aggiornarla paper per paper (o almeno a ogni checkpoint) è obbligatorio — se viene lasciata vuota, la skill `educational-pilot-design` non riceve le informazioni bibliografiche e deve chiederle manualmente. Questo garantisce che i file siano salvati anche se la sessione si interrompe.
 
 ### 4.3 — Salvataggio finale ed export `eligibility_prisma.json`
 
@@ -883,7 +885,7 @@ py wiki/scripts/wiki.py ingest \
 | Ignorare duplicati cross-database | Controlla DOI e titolo normalizzato |
 | Non estrarre effect size | Estrarre sempre d/η²/r dalla tabella risultati; se mancante, calcolare da F o t |
 | Omettere quality assessment | Ogni paper incluso deve avere punteggio /6 — distingue evidenza forte da debole |
-| Non compilare la sezione "OUTPUT PER PILOT STUDY" | Questa sezione è il handoff verso edtech-pilot-design — deve essere completa prima di avviare il pilot |
+| Non compilare la sezione "OUTPUT PER PILOT STUDY" | Questa sezione è il handoff verso educational-pilot-design — deve essere completa prima di avviare il pilot |
 | Effect size medio calcolato senza pesare la qualità | Calcola media ponderata escludendo gli studi con qualità ≤ 2/6 |
 | Usare ERIC con `rows` default (10) | Specificare sempre `rows=200` + paginazione con `start` per coprire il corpus |
 | Non sapere quando fermare la paginazione ERIC | Fermati quando il tool restituisce < `rows` elementi — quella è la fine del corpus |

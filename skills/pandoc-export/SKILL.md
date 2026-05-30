@@ -1,13 +1,13 @@
 ---
 name: pandoc-export
-description: Use when the user wants to convert a Markdown file to Word (DOCX), especially after completing a PRISMA systematic review or an edtech pilot study design. Triggers on: "converti in Word", "esporta in docx", "pandoc", "salva come Word", output from prisma-review or edtech-pilot-design skill.
+description: Use when the user wants to convert a Markdown file to Word (DOCX), especially after completing a PRISMA systematic review or an educational pilot study design. Triggers on: "converti in Word", "esporta in docx", "pandoc", "salva come Word", output from prisma-review or educational-pilot-design skill.
 ---
 
 # Pandoc Export: Markdown → DOCX
 
 ## Overview
 
-Converte i file Markdown (output di `prisma-review` o `edtech-pilot-design`) in Word (.docx) usando pandoc.
+Converte i file Markdown (output di `prisma-review` o `educational-pilot-design`) in Word (.docx) usando pandoc.
 
 ## Verifica installazione (PRIMO PASSO)
 
@@ -34,7 +34,7 @@ Alternativa (se winget non disponibile): scarica da pandoc.org/installing. Dopo 
 | `prisma_log.md` | Log metodologico dettagliato | Se richiesto dalla rivista |
 | `prisma_bibliography.md` | Bibliografia annotata | Per allegare al paper |
 
-### Da `edtech-pilot-design`
+### Da `educational-pilot-design`
 | File | Contenuto | Quando esportare |
 |---|---|---|
 | `preprint_bozza.md` | Bozza del paper IMRAD | Sempre alla fine della Fase 6 |

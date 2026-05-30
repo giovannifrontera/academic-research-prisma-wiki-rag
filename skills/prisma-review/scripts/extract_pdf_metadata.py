@@ -14,6 +14,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import Optional
 
 try:
     import pdfplumber
@@ -43,15 +44,25 @@ def extract_text(pdf_path: Path, n_pages: int = 4) -> str:
     return text
 
 
-def extract_doi(text: str) -> str | None:
+def extract_doi(text: str) -> Optional[str]:
     m = DOI_RE.search(text)
     if m:
         return m.group(0).rstrip(".,;)>").lower()
     return None
 
 
-def extract_year(text: str) -> str | None:
-    for year in YEAR_RE.findall(text)[:15]:
+def extract_year(text: str) -> Optional[str]:
+    # Prefer years appearing near publication metadata keywords (more reliable)
+    meta_zone = re.search(
+        r'(?:published|received|accepted|copyright|©|volume|vol\.|issue|\bpp\b)[^\n]{0,60}',
+        text, re.IGNORECASE
+    )
+    candidates = []
+    if meta_zone:
+        candidates = YEAR_RE.findall(meta_zone.group(0))
+    if not candidates:
+        candidates = YEAR_RE.findall(text)[:15]
+    for year in candidates:
         if 1950 <= int(year) <= 2030:
             return year
     return None

@@ -8,14 +8,22 @@ description: Use when starting a new academic research project, switching betwee
 ## Flusso completo
 
 ```
-[prisma-review]          → eligibility_prisma.json + prisma_synthesis.md
+[wiki-query]             ← Fase 1.0: pre-search knowledge check su wiki_workspace
        ↓
-[hybrid-rag]             → rag_db/
+[prisma-review]          → eligibility_prisma.json + prisma_synthesis.md
+                            + raw_pdf_manual.json (Stream 2: PDF manuali, PRISMA 2020)
+       ↓
+[hybrid-rag]             → rag_db/  (index-prisma + index-pdf pdf_manuali/)
+       ↓
+[wiki-ingest]            ← Export post-review: entity pages (paper inclusi) + synthesis page
        ↓
 [educational-pilot-design]    → protocollo_ricerca.md + preprint_bozza.md
        ↓
 [pandoc-export]          → preprint_bozza.docx
 ```
+
+**wiki-query** e **wiki-ingest** richiedono `wiki_workspace` configurato (Fase 0.8 di `prisma-review`).
+Vedi `skills/wiki-core.md` per i comandi. I due step wiki sono opzionali ma abilitano la memoria cross-sessione.
 
 Ogni skill è invocata tramite il tool **`Skill`** di Claude Code (es. `Skill("prisma-review")`).
 
@@ -31,11 +39,12 @@ Ogni skill è invocata tramite il tool **`Skill`** di Claude Code (es. `Skill("p
 
 | File | Contenuto | Consumato da |
 |---|---|---|
-| `prisma_state.json` | Stato operativo + lista paper inclusi (dati minimi) | Ripresa di sessione |
+| `prisma_state.json` | Stato operativo + lista paper inclusi + `wiki_workspace` | Ripresa di sessione |
 | `prisma_log.md` | Log metodologico ufficiale per il paper | — |
-| `screening_prisma.json` | Paper dopo deduplicazione (con abstract) | `hybrid-rag` (fallback) |
-| `eligibility_prisma.json` / `extraction_table.json` | Paper inclusi con dati estratti completi | `hybrid-rag` (primario) |
-| `prisma_synthesis.md` | Sintesi tematica + **sezione OUTPUT PER PILOT STUDY** | `educational-pilot-design` |
+| `raw_pdf_manual.json` | Metadati PDF trovati manualmente (Stream 2, PRISMA 2020) | `hybrid-rag` index-pdf, Fase 2 dedup |
+| `screening_prisma.json` | Paper dopo deduplicazione cross-stream (con abstract) | `hybrid-rag` (fallback) |
+| `eligibility_prisma.json` / `extraction_table.json` | Paper inclusi con dati estratti completi | `hybrid-rag` (primario), wiki-ingest |
+| `prisma_synthesis.md` | Sintesi tematica + **OUTPUT PER PILOT STUDY** + wiki export | `educational-pilot-design`, wiki-ingest |
 | `prisma_bibliography.md` | Schede bibliografiche annotate | Report finale |
 
 **File critico per il passaggio al Pilot:** `prisma_synthesis.md` — sezione **OUTPUT PER PILOT STUDY** (effect size aggregati, framework dominante, strumenti, RQ aperte, gap di popolazione, durata tipica interventi). Deve essere compilata durante la Fase 4, non solo alla fine.
@@ -46,7 +55,7 @@ Ogni skill è invocata tramite il tool **`Skill`** di Claude Code (es. `Skill("p
 
 **Quando:** dopo la Fase 4 di `prisma-review`, per costruire il database RAG per la generazione del report e per il pilot.
 
-**Input richiesti:** `eligibility_prisma.json` (o `extraction_table.json`). Opzionale: cartella PDF manuali.
+**Input richiesti:** `eligibility_prisma.json` (o `extraction_table.json`). Opzionale: `pdf_manuali/` per `index-pdf` (Stream 2).
 
 **Comandi minimi:**
 ```bash
