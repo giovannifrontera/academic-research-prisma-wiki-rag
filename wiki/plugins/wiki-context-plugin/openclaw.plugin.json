@@ -1,0 +1,54 @@
+{
+  "id": "wiki-context-plugin",
+  "name": "Wiki Context Injector",
+  "description": "Injects relevant wiki pages into every prompt via before_prompt_build. Requires wiki_context.py from ai-longterm-wiki-memory.",
+  "main": "index.js",
+  "contracts": {
+    "tools": ["wiki_process_raw"],
+    "hooks": ["before_prompt_build"]
+  },
+  "activation": {
+    "onStartup": true,
+    "allowConversationAccess": true,
+    "allowPromptInjection": true
+  },
+  "configSchema": {
+    "type": "object",
+    "required": ["workspace", "wikiContextScript"],
+    "properties": {
+      "workspace": {
+        "type": "string",
+        "description": "Absolute path to the wiki workspace (directory containing wiki.config.json)"
+      },
+      "wikiContextScript": {
+        "type": "string",
+        "description": "Absolute path to wiki_context.py (e.g. /path/to/ai-longterm-wiki-memory/scripts/wiki_context.py)"
+      },
+      "pythonExecutable": {
+        "type": "string",
+        "default": "python",
+        "description": "Python executable. On Windows Store Python use the absolute path (e.g. C:\\Users\\...\\python.exe)."
+      },
+      "k": {
+        "type": "integer",
+        "default": 3,
+        "description": "Number of wiki pages to inject per prompt"
+      },
+      "maxChars": {
+        "type": "integer",
+        "default": 600,
+        "description": "Max characters per wiki chunk included in the context block"
+      },
+      "timeoutMs": {
+        "type": "integer",
+        "default": 15000,
+        "description": "Timeout for wiki_context.py in milliseconds"
+      },
+      "debug": {
+        "type": "boolean",
+        "default": false,
+        "description": "Write diagnostic log to <workspace>/.wiki-plugin-debug.log on every prompt"
+      }
+    }
+  }
+}

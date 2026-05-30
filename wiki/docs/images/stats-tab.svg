@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="'DM Mono', monospace">
+  <defs>
+    <filter id="glow-green" x="-200%" y="-200%" width="500%" height="500%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="520" fill="#080c10"/>
+
+  <!-- ── HEADER ── -->
+  <rect width="900" height="56" fill="#0e1319"/>
+  <line x1="0" y1="56" x2="900" y2="56" stroke="#1e2a36" stroke-width="1"/>
+
+  <!-- Logo zone -->
+  <line x1="148" y1="0" x2="148" y2="56" stroke="#1e2a36" stroke-width="1"/>
+  <rect x="16" y="14" width="28" height="28" rx="6" fill="none" stroke="#00c8ff" stroke-width="1.5"/>
+  <text x="30" y="33" text-anchor="middle" fill="#00c8ff" font-size="13" font-weight="800" font-family="sans-serif">Wk</text>
+  <text x="54" y="30" fill="#cdd6e0" font-size="11" font-weight="700" letter-spacing="0.05em">AI <tspan fill="#00c8ff">Wiki</tspan> Memory</text>
+
+  <!-- Project tabs -->
+  <rect x="162" y="16" width="42" height="24" rx="4" fill="rgba(0,200,255,0.08)" stroke="#00c8ff" stroke-width="1"/>
+  <text x="183" y="32" text-anchor="middle" fill="#00c8ff" font-size="11">tutti</text>
+  <rect x="210" y="16" width="55" height="24" rx="4" fill="none" stroke="#1e2a36" stroke-width="1"/>
+  <text x="237" y="32" text-anchor="middle" fill="#4a6070" font-size="11">trading</text>
+  <rect x="271" y="16" width="52" height="24" rx="4" fill="none" stroke="#1e2a36" stroke-width="1"/>
+  <text x="297" y="32" text-anchor="middle" fill="#4a6070" font-size="11">ricerca</text>
+
+  <!-- Graf / Stats buttons (Stats active) -->
+  <rect x="600" y="16" width="40" height="24" rx="4" fill="none" stroke="#1e2a36" stroke-width="1"/>
+  <text x="620" y="32" text-anchor="middle" fill="#4a6070" font-size="11">Graf</text>
+  <rect x="646" y="16" width="46" height="24" rx="4" fill="rgba(0,200,255,0.08)" stroke="#00c8ff" stroke-width="1"/>
+  <text x="669" y="32" text-anchor="middle" fill="#00c8ff" font-size="11">Stats</text>
+
+  <!-- Stats pill -->
+  <rect x="698" y="18" width="112" height="20" rx="10" fill="none" stroke="#1e2a36" stroke-width="1"/>
+  <text x="754" y="32" text-anchor="middle" fill="#4a6070" font-size="10">99 nodi · 127 archi</text>
+
+  <!-- WS indicator -->
+  <circle cx="832" cy="28" r="4" fill="#00e5a0" filter="url(#glow-green)"/>
+  <text x="841" y="32" fill="#4a6070" font-size="10">live</text>
+
+  <!-- ── STATS CONTENT ── -->
+
+  <!-- Title + refresh -->
+  <text x="24" y="90" fill="#cdd6e0" font-size="17" font-weight="600">Statistiche Wiki</text>
+  <rect x="804" y="70" width="76" height="26" rx="4" fill="none" stroke="#1e2a36" stroke-width="1"/>
+  <text x="842" y="87" text-anchor="middle" fill="#4a6070" font-size="12">Aggiorna</text>
+
+  <!-- ── KPI CARDS (4 cards) ── -->
+
+  <!-- Card: Pagine -->
+  <rect x="24" y="106" width="192" height="86" rx="8" fill="#0e1319" stroke="#1e2a36" stroke-width="1"/>
+  <text x="120" y="158" text-anchor="middle" fill="#cdd6e0" font-size="30" font-weight="700">99</text>
+  <text x="120" y="178" text-anchor="middle" fill="#4a6070" font-size="11" letter-spacing="0.05em">PAGINE</text>
+
+  <!-- Card: Copertura Embedding -->
+  <rect x="228" y="106" width="192" height="86" rx="8" fill="#0e1319" stroke="#1e2a36" stroke-width="1"/>
+  <text x="324" y="158" text-anchor="middle" fill="#00e5a0" font-size="30" font-weight="700">94%</text>
+  <text x="324" y="178" text-anchor="middle" fill="#4a6070" font-size="11" letter-spacing="0.05em">COPERTURA</text>
+
+  <!-- Card: Stale -->
+  <rect x="432" y="106" width="192" height="86" rx="8" fill="#0e1319" stroke="#1e2a36" stroke-width="1"/>
+  <text x="528" y="158" text-anchor="middle" fill="#f5a623" font-size="30" font-weight="700">3</text>
+  <text x="528" y="178" text-anchor="middle" fill="#4a6070" font-size="11" letter-spacing="0.05em">STALE</text>
+
+  <!-- Card: Auto-lint -->
+  <rect x="636" y="106" width="240" height="86" rx="8" fill="#0e1319" stroke="#1e2a36" stroke-width="1"/>
+  <text x="756" y="158" text-anchor="middle" fill="#00c8ff" font-size="30" font-weight="700">24h</text>
+  <text x="756" y="178" text-anchor="middle" fill="#4a6070" font-size="11" letter-spacing="0.05em">AUTO-LINT</text>
+
+  <!-- ── TWO COLUMNS ── -->
+
+  <!-- Column 1: Top queried -->
+  <rect x="24" y="210" width="416" height="282" rx="8" fill="#0e1319" stroke="#1e2a36" stroke-width="1"/>
+  <text x="40" y="236" fill="#cdd6e0" font-size="13" font-weight="600">Pagine più interrogate</text>
+
+  <line x1="40" y1="246" x2="424" y2="246" stroke="#1e2a36" stroke-width="1"/>
+
+  <!-- Row 1 -->
+  <rect x="40" y="256" width="6" height="22" rx="2" fill="#00c8ff"/>
+  <text x="54" y="272" fill="#cdd6e0" font-size="12">chatbot-apprendimento</text>
+  <text x="416" y="272" text-anchor="end" fill="#00c8ff" font-size="11">47×</text>
+
+  <!-- Row 2 -->
+  <rect x="40" y="286" width="5" height="20" rx="2" fill="#00c8ff" fill-opacity="0.7"/>
+  <text x="54" y="301" fill="#cdd6e0" font-size="12">self-regulated-learning</text>
+  <text x="416" y="301" text-anchor="end" fill="#4a6070" font-size="11">38×</text>
+
+  <!-- Row 3 -->
+  <rect x="40" y="314" width="4" height="18" rx="2" fill="#00c8ff" fill-opacity="0.5"/>
+  <text x="54" y="328" fill="#cdd6e0" font-size="12">metacognizione-studenti</text>
+  <text x="416" y="328" text-anchor="end" fill="#4a6070" font-size="11">29×</text>
+
+  <!-- Row 4 -->
+  <rect x="40" y="340" width="3" height="16" rx="2" fill="#00c8ff" fill-opacity="0.35"/>
+  <text x="54" y="354" fill="#cdd6e0" font-size="12">feedback-automatico</text>
+  <text x="416" y="354" text-anchor="end" fill="#4a6070" font-size="11">22×</text>
+
+  <!-- Row 5 -->
+  <rect x="40" y="364" width="3" height="14" rx="2" fill="#00c8ff" fill-opacity="0.25"/>
+  <text x="54" y="378" fill="#cdd6e0" font-size="12">analisi-sintattica</text>
+  <text x="416" y="378" text-anchor="end" fill="#4a6070" font-size="11">18×</text>
+
+  <!-- Row 6 -->
+  <rect x="40" y="386" width="2" height="12" rx="2" fill="#00c8ff" fill-opacity="0.18"/>
+  <text x="54" y="400" fill="#cdd6e0" font-size="12">comprensione-testo</text>
+  <text x="416" y="400" text-anchor="end" fill="#4a6070" font-size="11">14×</text>
+
+  <!-- Row 7 -->
+  <rect x="40" y="408" width="2" height="10" rx="2" fill="#00c8ff" fill-opacity="0.12"/>
+  <text x="54" y="422" fill="#cdd6e0" font-size="12">valutazione-formativa</text>
+  <text x="416" y="422" text-anchor="end" fill="#4a6070" font-size="11">11×</text>
+
+  <!-- Row 8 -->
+  <rect x="40" y="428" width="1" height="8" rx="2" fill="#00c8ff" fill-opacity="0.09"/>
+  <text x="54" y="443" fill="#cdd6e0" font-size="12">tutoring-intelligente</text>
+  <text x="416" y="443" text-anchor="end" fill="#4a6070" font-size="11">8×</text>
+
+  <!-- Lint status footer -->
+  <line x1="40" y1="462" x2="424" y2="462" stroke="#1e2a36" stroke-width="1"/>
+  <circle cx="50" cy="476" r="4" fill="#00e5a0"/>
+  <text x="62" y="480" fill="#4a6070" font-size="11">Lint: ok · 0 errori · 2 warning · 2026-05-24 14:32</text>
+
+  <!-- Column 2: Stale + Lint detail -->
+  <rect x="456" y="210" width="420" height="282" rx="8" fill="#0e1319" stroke="#1e2a36" stroke-width="1"/>
+  <text x="472" y="236" fill="#cdd6e0" font-size="13" font-weight="600">Pagine stale (&gt;90 giorni)</text>
+  <line x1="472" y1="246" x2="860" y2="246" stroke="#1e2a36" stroke-width="1"/>
+
+  <!-- Stale rows -->
+  <circle cx="483" cy="268" r="3" fill="#f5a623"/>
+  <text x="494" y="272" fill="#cdd6e0" font-size="12">wiki-works/trading/raw/2026-02-10-sp500.md</text>
+
+  <circle cx="483" cy="294" r="3" fill="#f5a623"/>
+  <text x="494" y="298" fill="#cdd6e0" font-size="12">wiki-works/ricerca/raw/2026-01-22-paper.md</text>
+
+  <circle cx="483" cy="320" r="3" fill="#f5a623"/>
+  <text x="494" y="324" fill="#cdd6e0" font-size="12">wiki/concepts/apprendimento-adattivo.md</text>
+
+  <!-- Separator -->
+  <line x1="472" y1="346" x2="860" y2="346" stroke="#1e2a36" stroke-width="1"/>
+
+  <!-- Semantic duplicates section -->
+  <text x="472" y="370" fill="#cdd6e0" font-size="13" font-weight="600">Duplicati semantici</text>
+
+  <rect x="472" y="382" width="368" height="52" rx="6" fill="#141b23" stroke="#2a3a4a" stroke-width="1"/>
+  <text x="488" y="400" fill="#f5a623" font-size="11">⚠ warn  0.82</text>
+  <text x="488" y="416" fill="#4a6070" font-size="10">chatbot-apprendimento  ↔  tutoring-intelligente</text>
+  <text x="832" y="400" text-anchor="end" fill="#4a6070" font-size="11">unire?</text>
+
+  <!-- Auto-lint countdown -->
+  <line x1="472" y1="450" x2="860" y2="450" stroke="#1e2a36" stroke-width="1"/>
+  <text x="472" y="475" fill="#4a6070" font-size="11">Prossimo lint automatico tra</text>
+  <text x="670" y="475" fill="#00c8ff" font-size="11">18h 42m</text>
+  <rect x="726" y="462" width="110" height="22" rx="4" fill="none" stroke="#2a3a4a" stroke-width="1"/>
+  <text x="781" y="477" text-anchor="middle" fill="#4a6070" font-size="11">Esegui lint ora</text>
+</svg>

@@ -1,0 +1,39 @@
+{
+  "workspace": "/path/to/workspace",
+  "pdf_inbox": {
+    "project_default": "ricerca"
+  },
+  "projects": {
+    "trading": {
+      "path": "wiki-works/trading",
+      "keywords": ["mercati", "indicatori", "trading", "borsa", "azioni", "ticker"]
+    },
+    "ricerca": {
+      "path": "wiki-works/ricerca",
+      "keywords": ["paper", "studio", "PRISMA", "articolo", "ricerca", "università"]
+    }
+  },
+  "thresholds": {
+    "index_token_budget": 4000,
+    "staleness_days": 90,
+    "similarity_merge": 0.95,
+    "similarity_orphan": 0.50,
+    "synthesis_min_tokens": 300,
+    "synthesis_min_sources": 2,
+    "chunk_size_tokens": 512,
+    "chunk_overlap_tokens": 64,
+    "page_chunk_threshold_tokens": 1500,
+    "quality_filter_min_score": 6,
+    "dedup_auto": 0.90,
+    "dedup_warn": 0.75
+  },
+  "self_reflection": {
+    "enabled": true,
+    "correction_threshold": 3
+  },
+  "lancedb": {
+    "path": "memory/lancedb",
+    "embedding_model": "BAAI/bge-m3"
+  },
+  "exclude_from_index": []
+}

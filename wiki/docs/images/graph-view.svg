@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 520" font-family="'DM Mono', monospace">
+  <defs>
+    <filter id="glow-gold" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="blur"/>
+      <feFlood flood-color="#f5a623" flood-opacity="0.8" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="cb"/>
+      <feMerge><feMergeNode in="cb"/><feMergeNode in="cb"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-green-ws" x="-200%" y="-200%" width="500%" height="500%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse" x="0" y="56">
+      <path d="M60 0L0 0 0 60" fill="none" stroke="#1e2a36" stroke-width="0.5"/>
+    </pattern>
+    <radialGradient id="bg1" cx="28%" cy="38%" r="45%">
+      <stop offset="0%" stop-color="#00c8ff" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#00c8ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bg2" cx="72%" cy="68%" r="38%">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.035"/>
+      <stop offset="100%" stop-color="#a855f7" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="520" fill="#080c10"/>
+
+  <!-- Graph area backgrounds -->
+  <rect x="0" y="56" width="900" height="464" fill="url(#bg1)"/>
+  <rect x="0" y="56" width="900" height="464" fill="url(#bg2)"/>
+  <rect x="0" y="56" width="900" height="464" fill="url(#grid)"/>
+
+  <!-- ── HEADER ── -->
+  <rect width="900" height="56" fill="#0e1319"/>
+  <line x1="0" y1="56" x2="900" y2="56" stroke="#1e2a36" stroke-width="1"/>
+
+  <!-- Logo zone -->
+  <line x1="148" y1="0" x2="148" y2="56" stroke="#1e2a36" stroke-width="1"/>
+  <rect x="16" y="14" width="28" height="28" rx="6" fill="none" stroke="#00c8ff" stroke-width="1.5"/>
+  <text x="30" y="33" text-anchor="middle" fill="#00c8ff" font-size="13" font-weight="800" font-family="sans-serif">Wk</text>
+  <text x="54" y="30" fill="#cdd6e0" font-size="11" font-weight="700" letter-spacing="0.05em">AI <tspan fill="#00c8ff">Wiki</tspan> Memory</text>
+
+  <!-- Project tabs -->
+  <rect x="162" y="16" width="42" height="24" rx="4" fill="rgba(0,200,255,0.08)" stroke="#00c8ff" stroke-width="1"/>
+  <text x="183" y="32" text-anchor="middle" fill="#00c8ff" font-size="11">tutti</text>
+  <rect x="210" y="16" width="55" height="24" rx="4" fill="none" stroke="#1e2a36" stroke-width="1"/>
+  <text x="237" y="32" text-anchor="middle" fill="#4a6070" font-size="11">trading</text>
+  <rect x="271" y="16" width="52" height="24" rx="4" fill="none" stroke="#1e2a36" stroke-width="1"/>
+  <text x="297" y="32" text-anchor="middle" fill="#4a6070" font-size="11">ricerca</text>
+
+  <!-- Graf / Stats buttons -->
+  <rect x="600" y="16" width="40" height="24" rx="4" fill="rgba(0,200,255,0.08)" stroke="#00c8ff" stroke-width="1"/>
+  <text x="620" y="32" text-anchor="middle" fill="#00c8ff" font-size="11">Graf</text>
+  <rect x="646" y="16" width="46" height="24" rx="4" fill="none" stroke="#1e2a36" stroke-width="1"/>
+  <text x="669" y="32" text-anchor="middle" fill="#4a6070" font-size="11">Stats</text>
+
+  <!-- Stats pill -->
+  <rect x="698" y="18" width="112" height="20" rx="10" fill="none" stroke="#1e2a36" stroke-width="1"/>
+  <text x="754" y="32" text-anchor="middle" fill="#4a6070" font-size="10">99 nodi · 127 archi</text>
+
+  <!-- WS indicator (live) -->
+  <circle cx="832" cy="28" r="4" fill="#00e5a0" filter="url(#glow-green-ws)"/>
+  <text x="841" y="32" fill="#4a6070" font-size="10">live</text>
+
+  <!-- ── EDGES ── -->
+  <g stroke="#2a3a4a" stroke-width="1.2" opacity="0.8">
+    <line x1="248" y1="210" x2="382" y2="265"/>
+    <line x1="408" y1="262" x2="466" y2="222"/>
+    <line x1="492" y1="218" x2="564" y2="304"/>
+    <line x1="232" y1="336" x2="462" y2="226"/>
+    <line x1="466" y1="374" x2="624" y2="404"/>
+    <line x1="548" y1="170" x2="484" y2="218"/>
+    <line x1="308" y1="436" x2="182" y2="432"/>
+    <line x1="394" y1="272" x2="458" y2="362"/>
+    <line x1="572" y1="310" x2="462" y2="362"/>
+    <line x1="724" y1="354" x2="322" y2="432"/>
+    <line x1="694" y1="228" x2="318" y2="430"/>
+  </g>
+
+  <!-- ── NODES ── -->
+
+  <!-- Chatbot AI — QUERY HIT (gold glow) -->
+  <g filter="url(#glow-gold)">
+    <circle cx="392" cy="265" r="24" fill="#e05a3a" fill-opacity="0.18" stroke="#e05a3a" stroke-opacity="0.4" stroke-width="1"/>
+    <circle cx="392" cy="265" r="11" fill="#e05a3a" stroke="#080c10" stroke-width="1.5"/>
+  </g>
+  <text x="408" y="269" fill="#cdd6e0" font-size="10.5">Chatbot AI</text>
+
+  <!-- Apprendimento — QUERY HIT (gold glow) -->
+  <g filter="url(#glow-gold)">
+    <circle cx="476" cy="220" r="21" fill="#f5a623" fill-opacity="0.18" stroke="#f5a623" stroke-opacity="0.4" stroke-width="1"/>
+    <circle cx="476" cy="220" r="10" fill="#f5a623" stroke="#080c10" stroke-width="1.5"/>
+  </g>
+  <text x="491" y="224" fill="#cdd6e0" font-size="10.5">Apprendimento</text>
+
+  <!-- Metacognizione — QUERY HIT (gold glow) -->
+  <g filter="url(#glow-gold)">
+    <circle cx="572" cy="308" r="21" fill="#ff4757" fill-opacity="0.18" stroke="#ff4757" stroke-opacity="0.4" stroke-width="1"/>
+    <circle cx="572" cy="308" r="10" fill="#ff4757" stroke="#080c10" stroke-width="1.5"/>
+  </g>
+  <text x="588" y="312" fill="#cdd6e0" font-size="10.5">Metacognizione</text>
+
+  <!-- J. Hattie -->
+  <circle cx="238" cy="210" r="19" fill="#00c8ff" fill-opacity="0.09" stroke="#00c8ff" stroke-opacity="0.3" stroke-width="1"/>
+  <circle cx="238" cy="210" r="8" fill="#00c8ff" stroke="#080c10" stroke-width="1.5"/>
+  <text x="252" y="214" fill="#cdd6e0" font-size="10.5">J. Hattie</text>
+
+  <!-- PRISMA -->
+  <circle cx="458" cy="368" r="17" fill="#a855f7" fill-opacity="0.09" stroke="#a855f7" stroke-opacity="0.3" stroke-width="1"/>
+  <circle cx="458" cy="368" r="8" fill="#a855f7" stroke="#080c10" stroke-width="1.5"/>
+  <text x="472" y="372" fill="#cdd6e0" font-size="10.5">PRISMA</text>
+
+  <!-- Bloom -->
+  <circle cx="632" cy="404" r="17" fill="#a855f7" fill-opacity="0.09" stroke="#a855f7" stroke-opacity="0.3" stroke-width="1"/>
+  <circle cx="632" cy="404" r="8" fill="#a855f7" stroke="#080c10" stroke-width="1.5"/>
+  <text x="648" y="408" fill="#cdd6e0" font-size="10.5">Bloom</text>
+
+  <!-- Feedback -->
+  <circle cx="222" cy="336" r="17" fill="#00e5a0" fill-opacity="0.09" stroke="#00e5a0" stroke-opacity="0.3" stroke-width="1"/>
+  <circle cx="222" cy="336" r="8" fill="#00e5a0" stroke="#080c10" stroke-width="1.5"/>
+  <text x="236" y="340" fill="#cdd6e0" font-size="10.5">Feedback</text>
+
+  <!-- NLP -->
+  <circle cx="692" cy="222" r="17" fill="#00c8ff" fill-opacity="0.09" stroke="#00c8ff" stroke-opacity="0.3" stroke-width="1"/>
+  <circle cx="692" cy="222" r="8" fill="#00c8ff" stroke="#080c10" stroke-width="1.5"/>
+  <text x="706" y="226" fill="#cdd6e0" font-size="10.5">NLP</text>
+
+  <!-- Self-Regulation -->
+  <circle cx="312" cy="432" r="17" fill="#00e5a0" fill-opacity="0.09" stroke="#00e5a0" stroke-opacity="0.3" stroke-width="1"/>
+  <circle cx="312" cy="432" r="8" fill="#00e5a0" stroke="#080c10" stroke-width="1.5"/>
+  <text x="326" y="436" fill="#cdd6e0" font-size="10.5">Self-Regulation</text>
+
+  <!-- Tutoring -->
+  <circle cx="548" cy="162" r="19" fill="#ff4757" fill-opacity="0.09" stroke="#ff4757" stroke-opacity="0.3" stroke-width="1"/>
+  <circle cx="548" cy="162" r="8" fill="#ff4757" stroke="#080c10" stroke-width="1.5"/>
+  <text x="562" y="166" fill="#cdd6e0" font-size="10.5">Tutoring</text>
+
+  <!-- Comunicazione -->
+  <circle cx="728" cy="354" r="17" fill="#00e5a0" fill-opacity="0.09" stroke="#00e5a0" stroke-opacity="0.3" stroke-width="1"/>
+  <circle cx="728" cy="354" r="8" fill="#00e5a0" stroke="#080c10" stroke-width="1.5"/>
+  <text x="742" y="358" fill="#cdd6e0" font-size="10.5">Comunicazione</text>
+
+  <!-- Empatia -->
+  <circle cx="172" cy="432" r="17" fill="#00e5a0" fill-opacity="0.09" stroke="#00e5a0" stroke-opacity="0.3" stroke-width="1"/>
+  <circle cx="172" cy="432" r="8" fill="#00e5a0" stroke="#080c10" stroke-width="1.5"/>
+  <text x="186" y="436" fill="#cdd6e0" font-size="10.5">Empatia</text>
+
+  <!-- ── BADGE: query hit legend ── -->
+  <rect x="22" y="68" width="216" height="32" rx="6" fill="#0e1319" stroke="#f5a623" stroke-width="1" fill-opacity="0.95"/>
+  <circle cx="40" cy="84" r="5" fill="#f5a623"/>
+  <text x="52" y="88" fill="#f5a623" font-size="11">nodi attivati dall'agente</text>
+
+  <!-- ── Category legend bottom-right ── -->
+  <rect x="700" y="456" width="188" height="56" rx="6" fill="#0e1319" stroke="#1e2a36" stroke-width="1" fill-opacity="0.95"/>
+  <circle cx="718" cy="472" r="5" fill="#e05a3a"/><text x="728" y="476" fill="#cdd6e0" font-size="10">apprendimento</text>
+  <circle cx="718" cy="489" r="5" fill="#00e5a0"/><text x="728" y="493" fill="#cdd6e0" font-size="10">cognizione</text>
+  <circle cx="795" cy="472" r="5" fill="#a855f7"/><text x="805" y="476" fill="#cdd6e0" font-size="10">sintesi</text>
+  <circle cx="795" cy="489" r="5" fill="#00c8ff"/><text x="805" y="493" fill="#cdd6e0" font-size="10">entità</text>
+</svg>

@@ -1,0 +1,20 @@
+{
+  "name": "wiki-context-plugin",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "OpenClaw plugin — injects wiki context before every prompt via before_prompt_build hook",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').copyFileSync('dist/index.js','index.js')\"",
+    "dev": "tsc --watch"
+  },
+  "openclaw": {
+    "pluginManifest": "openclaw.plugin.json",
+    "compatibility": ">=1.0.0",
+    "buildVersion": "1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "openclaw": "*"
+  }
+}
