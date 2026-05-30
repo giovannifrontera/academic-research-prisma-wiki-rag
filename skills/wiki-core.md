@@ -1,195 +1,147 @@
 ---
 name: wiki-core
-description: AI Agent wiki protocol v3 — three-layer brain, autonomous promotion, semantic dedup, self-reflection
+description: Long-term research memory for Claude Code. Persists academic knowledge (papers, syntheses, notes) across sessions in a LanceDB vector index. Use to query existing knowledge before a new PRISMA review, ingest papers and syntheses after a review, and retrieve evidence during pilot study design. Integrates with prisma-review and educational-pilot-design. Trigger whenever the user wants to save, search or consult the research knowledge base.
 ---
 
-# Wiki Core — AI Agent Protocol v3
+# Wiki Core — Research Memory
 
-> **This is a local skill file.**
-> Access it with `Read skills/wiki-core.md` — do NOT call a Skill tool.
+> **Nota:** Accedi con `Read skills/wiki-core.md`. Non usare il tool `Skill` — wiki-core è un documento di riferimento, non una skill invocabile.
+>
+> I comandi usano il path relativo `wiki/scripts/wiki.py` dalla radice del repo.
+> Su Linux/macOS sostituisci `py` con `python3`.
 
-> **Platform note:** Commands below use `py` (Windows Python Launcher).
-> On Linux/macOS replace `py` with `python3` — e.g. `python3 scripts/wiki.py ingest ...`
+---
 
-## §architecture — Three layers, one brain
+## Architettura
 
-All layers are indexed in the same LanceDB vector space. The agent accesses everything through semantic search — directory structure is organisational, not a barrier.
+Due layer, un unico indice vettoriale LanceDB:
 
-| Layer | Folder | Contents | Who writes |
-|-------|--------|----------|------------|
-| **Domain knowledge** | `wiki-works/<topic>/` | Deep knowledge on a specific topic: concepts, research, entities | INGEST workflow |
-| **Distilled knowledge** | `wiki/` | Cross-domain knowledge: what is useful regardless of topic | Agent (autonomous promotion) |
-| **Identity** | `wiki/identity/` | Who the agent is: values, style, learned behavioral patterns | Only `wiki.py self-reflect` |
+| Layer | Path (relativo al workspace) | Contenuto |
+|---|---|---|
+| **Conoscenza di progetto** | `wiki-works/ricerca/` | Paper, sintesi, note per specifici progetti PRISMA |
+| **Conoscenza distillata** | `wiki/concepts/`, `wiki/synthesis/` | Conoscenza cross-progetto, promossa autonomamente |
 
-**Fundamental rules:**
-- `wiki-works/<topic>/` is permanent — it grows, it is never archived unless explicitly requested
-- `wiki/` receives pages promoted autonomously by the agent when knowledge is cross-domain
-- `wiki/identity/` is written only by `self-reflect` — never manually
-- All three layers are searchable together via the same vector index
+**Workspace** = directory assoluta configurata in `wiki/wiki.config.json → "workspace"`.
+Tutti i comandi ricevono questo path via `--workspace`.
 
-## §promotion — When to promote from wiki-works/ to wiki/
+---
 
-Promote a page from `wiki-works/<topic>/` to `wiki/` when it meets **all** of these:
-- Relevant in at least 2 different topics or contexts
-- Cited or retrieved in ≥3 distinct queries
-- Contains inference that goes beyond a single source or domain
-
-**How to promote:**
-1. Write the distilled page as `.tmp` in `wiki/concepts/<slug>.md.tmp`
-2. Call `wiki.py ingest --workspace <path> --pages wiki/concepts/<slug>.md.tmp --log "promote | <title>"`
-3. Optionally keep the original in `wiki-works/` if it contains source-specific detail
-
-Do not ask the user for confirmation — promote autonomously when criteria are met.
-
-## §injected-context — Pre-injected context (highest priority)
-
-If the prompt contains a `<wiki-context>...</wiki-context>` block:
-- **USE the injected context** as the primary basis for your response
-- **DO NOT run** `wiki.py query` again
-- For INGEST: compare new content against pages in the block to detect conflicts
-- If relevance < 0.4 on all pages → wiki has no relevant knowledge: proceed without it
-
-If `<wiki-context>` is **not present**: fall back to §query.
-
-## Pre-action checklist (mandatory)
-
-```
-1. Read wiki-session.md → check "status"
-2. If status = "in-progress" or "needs-repair" → warn the user BEFORE anything
-3. Is <wiki-context> present? → yes: use §injected-context | no: go to step 4
-4. Classify the intent (see §classification)
-5. Multiple intents? → handle them in sequence
-6. Emit: [INTENT: X | WORKSPACE: Y | CONFIDENCE: high/medium/low]
-7. CONFIDENCE low → ask for confirmation with ONE line
-8. CONFIDENCE high/medium → proceed
-```
-
-## §classification
-
-| Signal | Intent |
-|--------|--------|
-| "study this", "save", "add to wiki", bare URL, PDF | INGEST |
-| Question, "what do you know about", "explain", "how does X work" | QUERY |
-| "check", "lint", "maintenance", "cleanup" | LINT |
-| Behavioral correction: "always", "never", "every time", "stop doing", "don't do that again" | BEHAVIOR_FEEDBACK |
-| Everything else | AMBIGUOUS → ask |
-
-## §behavior-feedback — When the user corrects my behavior
-
-When the message is classified as BEHAVIOR_FEEDBACK:
-
-1. Normalize the correction into a short canonical phrase
-2. Call:
-   ```bash
-   py scripts/wiki.py behavior-log --workspace <path> --event "<canonical phrase>"
-   ```
-3. Reply to the user confirming the correction
-4. At end of session, run §self-reflect
-
-## §self-reflect — Autonomous self-reflection
-
-Run **always** at end of session if BEHAVIOR_FEEDBACK was received, or if ≥2 corrections of any kind were received:
+## Comandi di riferimento
 
 ```bash
-py scripts/wiki.py self-reflect --workspace <path>
+# Interroga la memoria
+py wiki/scripts/wiki.py query --workspace <W> --q "<domanda>" --k 5
+
+# Ingest (pages già scritte come .tmp)
+py wiki/scripts/wiki.py ingest --workspace <W> --pages <f1.tmp,f2.tmp,...> --log "<etichetta>"
+
+# Ingest PDF (estrae testo — poi segui §ingest per creare le pagine strutturate)
+py wiki/scripts/wiki.py ingest-pdf --workspace <W> --file <percorso-o-url>
+
+# Lint (trova duplicati, link rotti)
+py wiki/scripts/wiki.py lint --workspace <W> --full
+
+# Rebuild indice da zero (dopo import massivo o corruzione)
+py wiki/scripts/wiki.py rebuild --workspace <W>
+
+# Dashboard web opzionale (http://localhost:7331)
+py wiki/scripts/wiki.py serve --workspace <W> --no-auth
 ```
 
-Reads `.wiki-behavior-log.jsonl`, detects recurring patterns (≥3 occurrences), and autonomously updates `wiki/identity/`. Run without asking the user. Log changes in `wiki/log.md`.
+`<W>` = path assoluto al wiki workspace (es. `C:/Users/nome/Documents/wiki-data`).
 
-## §ingest — INGEST workflow (knowledge into wiki-works/)
+---
 
-**Phase A — Research:**
-1. `web_search` for 5-10 candidate sources
-2. Apply quality filter: discard sources below score 6
-3. `web_fetch` → save in `wiki-works/<project>/raw/YYYY-MM-DD-slug.md`
-4. Read sources, identify key points and conflicts
+## §query — Interrogare la memoria
 
-**Phase B — Writing:**
-1. Write pages as `.tmp` files in `wiki-works/<project>/`:
-   - Entities → `entities/<slug>.md.tmp`
-   - Concepts → `concepts/<slug>.md.tmp`
-   - Synthesis → `synthesis/<slug>.md.tmp`
-2. Call:
-   ```bash
-   py scripts/wiki.py ingest \
-     --workspace <path> \
-     --pages <p1.tmp,p2.tmp,...> \
-     --log "ingest | <title>"
-   ```
-3. If `status: error` → warn user. If `mini_lint: failed` → warn user.
+1. Esegui: `py wiki/scripts/wiki.py query --workspace <W> --q "<domanda>" --k 5`
+2. Leggi le pagine restituite
+3. Sintetizza con riferimenti `[titolo-pagina](path)`
+4. Se la sintesi supera 300 token, aggiunge inferenza non letterale e attinge da ≥2 fonti → salva come nuova pagina via §ingest, poi valuta §promotion
 
-**Phase C — Report:** sources used, pages created, conflicts resolved.
-After ingestion, evaluate §promotion criteria for each new page.
+---
 
-## §lint — LINT workflow
+## §ingest — Salvare conoscenza
+
+**Fase A — Scrivi le pagine come file `.tmp`:**
+
+| Tipo pagina | Path |
+|---|---|
+| Paper singolo / entità | `wiki-works/ricerca/entities/<slug>.md.tmp` |
+| Sintesi di più paper | `wiki-works/ricerca/synthesis/<slug>.md.tmp` |
+| Concetto / framework | `wiki-works/ricerca/concepts/<slug>.md.tmp` |
+
+**Fase B — Ingest:**
+```bash
+py wiki/scripts/wiki.py ingest \
+  --workspace <W> \
+  --pages <p1.tmp,p2.tmp,...> \
+  --log "ingest | <titolo>"
+```
+
+`ingest` usa upsert — è sempre sicuro rieseguirlo su pagine già esistenti.
+
+**Fase C — Report:** fonti usate, pagine create, conflitti rilevati.
+Dopo l'ingest, valuta §promotion per ogni pagina nuova.
+
+---
+
+## §pdf-inbox — Ingest da PDF
 
 ```bash
-py scripts/wiki.py lint --workspace <path> --full
+py wiki/scripts/wiki.py ingest-pdf --workspace <W> --file <percorso>
 ```
 
-JSON output includes `semantic_duplicates`. Handle them as follows:
+1. Estrae testo via pdfplumber
+2. Salva il testo grezzo in `wiki-works/ricerca/raw/YYYY-MM-DD-slug.md`
+3. **Scrivi le pagine strutturate `.tmp` e chiama §ingest** — `ingest-pdf` estrae solo il testo, non crea pagine automaticamente
 
-| `action` | What to do |
-|----------|------------|
-| `auto_merge` (similarity ≥ 0.90) | Read both pages, write merged version as `.tmp`, call `wiki.py ingest`, delete originals |
-| `warn` (0.75 ≤ similarity < 0.90) | Show user the first 2 lines of each page and ask whether to merge |
+> ⚠️ `process-raw` reindicizza solo file già in `raw/` — non crea pagine strutturate. Usa sempre il workflow §ingest completo per nuova conoscenza.
 
-For broken links and duplicate filenames: present options to the user.
+---
 
-## §query — QUERY workflow
+## §promotion — Quando promuovere a `wiki/`
 
-**If `<wiki-context>` is present:** skip steps 1-3.
+Promuovi una pagina da `wiki-works/ricerca/` a `wiki/` quando vale tutte e tre:
+- Rilevante in ≥2 progetti o contesti di ricerca diversi
+- Recuperata in ≥3 query distinte
+- Contiene inferenza che va oltre una singola fonte
 
-**Manual fallback:**
-1. `py scripts/wiki.py index --workspace <path>`
-2. `py scripts/wiki.py query --workspace <path> --q "<question>" --k 5`
-3. Read the pages in the results
+Come promuovere:
+1. Scrivi la pagina distillata come `.tmp` in `wiki/concepts/<slug>.md.tmp` o `wiki/synthesis/<slug>.md.tmp`
+2. Chiama §ingest sul file `.tmp`
+3. Mantieni l'originale in `wiki-works/ricerca/` se contiene dettagli specifici della fonte
 
-**Always:**
-4. Synthesise with references `[page](path)`
-5. If the response synthesises ≥2 wiki sources, exceeds 300 tokens, adds non-literal inference → save it as a page via INGEST, then evaluate §promotion
+---
 
-## §pdf-inbox — PDF ingestion
+## §lint — Manutenzione
 
-Text extraction is done via **pdfplumber** (bundled in `wiki_pdf_watcher.py`).
-Do NOT extract PDF text manually — always use the commands below.
-
-1. `py scripts/wiki.py ingest-pdf --workspace <path> --file <path|url>`
-2. For each path in `deposited`, **read** the raw file (extracted text)
-3. **Write** structured `.tmp` pages in `wiki-works/<project>/` (see §ingest Phase B)
-4. Call `wiki.py ingest --workspace <path> --pages <file.tmp,...>`
-
-> **WARNING — process-raw ≠ ingest:**
-> `wiki.py process-raw` only re-indexes files already in `raw/` — it does NOT
-> create structured wiki pages. It is for bulk re-indexing only.
-> Always follow the full §ingest workflow for new knowledge.
-
-`scan-inbox` checks the PDF inbox directory defined in `wiki.config.json` and enqueues any new PDFs for the §pdf-inbox workflow.
-
-## §maintenance — Rebuild and serve
-
-**Rebuild** (re-embeds all wiki pages from scratch — use after bulk import or index corruption):
 ```bash
-py scripts/wiki.py rebuild --workspace <path>
+py wiki/scripts/wiki.py lint --workspace <W> --full
 ```
 
-**Serve** (web dashboard at `http://localhost:7331` — graph view + stats):
-```bash
-py scripts/wiki.py serve --workspace <path> [--no-auth]
-```
+Output include `semantic_duplicates`:
+- similarità ≥ 0.90 → merge: leggi entrambe, scrivi `.tmp` unificata, chiama ingest, elimina originali
+- 0.75 ≤ similarità < 0.90 → mostra le prime 2 righe di ciascuna, chiedi all'utente se unire
 
-Do not run `rebuild` during normal operation — it drops and recreates the entire vector index.
+---
 
-## §workspace — Project selection
+## Integrazione con il workflow PRISMA
 
-1. Read `wiki.config.json` → `projects` with keywords
-2. Count matches between message keywords and project keywords
-3. Project with most matches → selected
-4. Tie → ask the user
+| Momento | Azione | Riferimento |
+|---|---|---|
+| Prima di PRISMA Fase 1 | Query per conoscenza pre-esistente | `prisma-review` § 1.0 |
+| Dopo PRISMA Fase 4 | Ingest paper inclusi come entity pages | `prisma-review` § Export wiki — A |
+| Dopo PRISMA Fase 6 | Ingest sintesi | `prisma-review` § Export wiki — B |
+| Durante `educational-pilot-design` | Query per evidenze cross-progetto | wiki query + `hybrid_rag.py` per RAG locale |
 
-## §session
+---
 
-- Session start: read `wiki-session.md`
-- Never modify `wiki-session.md` directly: use `wiki.py session-update`
-- If `status: in-progress`: warn before any operation
-- Session end with BEHAVIOR_FEEDBACK received: run §self-reflect
+## Configurazione workspace
+
+Modifica `wiki/wiki.config.json`:
+- `"workspace"` → path assoluto alla directory dati wiki (es. `C:/Users/nome/Documents/wiki-data`)
+- `"projects.ricerca.path"` → sottocartella conoscenza ricerca (default: `wiki-works/ricerca`)
+- `"lancedb.path"` → sottocartella indice vettoriale (default: `memory/lancedb`)
+
+Tutti i path in `wiki.config.json` sono **relativi a `workspace`**.

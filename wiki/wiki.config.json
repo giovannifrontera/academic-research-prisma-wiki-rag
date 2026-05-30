@@ -1,18 +1,17 @@
 {
-  "workspace": "/path/to/workspace",
-  "pdf_inbox": {
-    "project_default": "ricerca"
-  },
+  "workspace": "/path/to/your/wiki-data",
+
   "projects": {
-    "trading": {
-      "path": "wiki-works/trading",
-      "keywords": ["mercati", "indicatori", "trading", "borsa", "azioni", "ticker"]
-    },
     "ricerca": {
       "path": "wiki-works/ricerca",
-      "keywords": ["paper", "studio", "PRISMA", "articolo", "ricerca", "università"]
+      "keywords": [
+        "paper", "studio", "PRISMA", "articolo", "ricerca", "università",
+        "review", "systematic", "pilot", "didattica", "pedagogia",
+        "psicopedagogia", "inclusione", "edtech", "apprendimento"
+      ]
     }
   },
+
   "thresholds": {
     "index_token_budget": 4000,
     "staleness_days": 90,
@@ -27,13 +26,11 @@
     "dedup_auto": 0.90,
     "dedup_warn": 0.75
   },
-  "self_reflection": {
-    "enabled": true,
-    "correction_threshold": 3
-  },
+
   "lancedb": {
     "path": "memory/lancedb",
     "embedding_model": "BAAI/bge-m3"
   },
+
   "exclude_from_index": []
 }
