@@ -26,8 +26,9 @@ Tiene traccia di: query usate, numeri per fase, criteri, configurazione. Struttu
   "ricercatore": "nome",
   "pico": {"P": "", "I": "", "C": "", "O": ""},
   "configurazione": {"anni": "", "database": [], "lingua": [], "tipo_pub": "", "min_citazioni": null},
+  "wiki_workspace": null,
   "fase_corrente": 0,
-  "fase1": {"risultati_per_db": {}, "totale_lordo": 0},
+  "fase1": {"risultati_per_db": {}, "totale_lordo": 0, "stream2_pdf": 0},
   "fase2": {"totale_lordo": 0, "duplicati": 0, "esclusi_filtri": 0, "totale_screening": 0},
   "fase3": {"valutati": 0, "esclusi": {}, "inclusi": 0},
   "fase4": {"paper_inclusi": []}
@@ -154,19 +155,21 @@ Creato alla Fase 4, contiene per ogni paper incluso una scheda con annotazione c
 ## PRISMA Flow
 
 ```
-[SETUP]          →  Raccolta parametri → crea cartella e file di persistenza
+[SETUP]          →  Raccolta parametri + PDF manuali + wiki workspace → crea file di persistenza
        ↓
-[Identification] →  Query MCP → salva JSON per DB → totali lordi → aggiorna file → ok
+[Identification] →  Stream 1: Query MCP database → raw_*.json
+                    Stream 2: extract_pdf_metadata.py → raw_pdf_manual.json (PRISMA 2020)
+                    Pre-search: wiki query per conoscenza pre-esistente
        ↓
-[Screening]      →  Script Python: legge JSON salvati → dedup + filtri → screening_prisma.json → ok
+[Screening]      →  Script Python: legge tutti i raw_*.json (incluso pdf_manual) → dedup cross-stream → screening_prisma.json
        ↓
-[Eligibility]    →  Criteri su abstract (no full-text) → esclusioni motivate → aggiorna file → ok
+[Eligibility]    →  Criteri su abstract → esclusioni motivate → aggiorna file
        ↓
-[Inclusion]      →  Estrazione dati per paper → eligibility_prisma.json → checkpoint ogni 10 → ok
+[Inclusion]      →  Estrazione dati → eligibility_prisma.json → checkpoint ogni 10
        ↓
-[RAG Build]      →  skill hybrid-rag → hybrid_rag.py index-prisma eligibility_prisma.json → ok
+[RAG Build]      →  hybrid_rag.py index-prisma + index-pdf pdf_manuali/
        ↓
-[Report]         →  hybrid_rag.py query "..." → recupera chunk → scrive sezione per sezione
+[Report]         →  hybrid_rag.py query → scrive sezione per sezione → export wiki
 ```
 
 ---
@@ -215,7 +218,36 @@ Se la domanda è ampia, aiuta l'utente a scomporla in **sub-domande** (es. RQ1, 
 
 > ⚠️ **Recency bias:** La soglia citazioni introduce un bias sistematico verso paper più datati. Paper pubblicati negli ultimi 2 anni (es. post-2022) hanno meno tempo per accumular citazioni anche se di alta qualità. Se usi una soglia, avverti l'utente e documenta questa limitazione nelle "Note metodologiche" del report finale. Alternativa consigliata: usare la soglia solo per i paper con più di 3 anni dalla pubblicazione.
 
-### 0.7 — Riepilogo e conferma
+### 0.7 — PDF trovati manualmente (PRISMA 2020 Stream 2)
+
+> "Hai trovato manualmente articoli rilevanti che vuoi includere nella review? (es. PDF scaricati da riviste, grey literature, referenze di altri paper, contatti personali con autori)"
+
+Se sì:
+1. Chiedi di creare la cartella `pdf_manuali/` nella cartella di lavoro e inserire i PDF
+2. Leggi il file `skills/prisma-review/scripts/extract_pdf_metadata.py` con il tool **Read** e scrivilo nella cartella di lavoro con il tool **Write**
+3. Esegui:
+   ```bash
+   py extract_pdf_metadata.py pdf_manuali/
+   ```
+4. Lo script crea `raw_pdf_manual.json` con titolo, DOI, anno, abstract per ogni PDF
+5. Chiedi all'utente di **verificare e integrare** il file generato (autori mancanti, PDF scannerizzati senza testo, abstract non trovati)
+6. Conta i record validi e aggiorna `prisma_state.json` con `fase1.stream2_pdf`
+
+> ⚠️ **PDF scannerizzati (solo immagine):** pdfplumber non estrae testo. Lo script segnala questi file — i metadati vanno inseriti manualmente in `raw_pdf_manual.json`. Non escluderli silenziosamente.
+
+> ⚠️ **Deduplicazione cross-stream:** un PDF manuale potrebbe duplicare un record già presente nei database. Lo script di Fase 2 gestirà questa deduplicazione automaticamente per DOI e titolo normalizzato.
+
+### 0.8 — Wiki System (OpenClaw)
+
+> "Stai usando il sistema wiki OpenClaw per questa ricerca? Se sì, indica il percorso assoluto della cartella wiki workspace (es. `C:/Users/nome/wiki-data/ricerca` o il path configurato in `wiki.config.json`)"
+
+Se sì:
+- Salva il percorso in `prisma_state.json` come `wiki_workspace`
+- Verifica che il path esista eseguendo: `py wiki/scripts/wiki.py query --workspace [path] --q "test" --k 1`
+- Se funziona, informa: *"Wiki connesso. Lo userò per: (1) cercare conoscenza pre-esistente prima delle query PRISMA, (2) esportare i paper inclusi dopo la Fase 4, (3) esportare la sintesi dopo la Fase 6."*
+- Se non funziona, documenta `wiki_workspace: null` e procedi senza integrazione wiki
+
+### 0.8b — Riepilogo e conferma
 ```
 CONFIGURAZIONE REVIEW
 ─────────────────────────────────────
@@ -234,6 +266,23 @@ Chiedi conferma. Poi aggiorna `prisma_state.json` e `prisma_log.md`.
 ---
 
 ## FASE 1 — Identification
+
+### 1.0 — Pre-search wiki context (se wiki_workspace è configurato)
+
+Prima di formulare le query per i database, interroga il wiki per surfaceare conoscenza già presente sul tema:
+
+```bash
+py wiki/scripts/wiki.py query --workspace [wiki_workspace] --q "[domanda di ricerca principale]" --k 5
+```
+
+Se il wiki restituisce pagine rilevanti (rilevanza > 0.4):
+- Usa la conoscenza esistente per **affinare le stringhe di ricerca** (es. aggiungere sinonimi già noti, escludere termini già valutati)
+- Annota in `prisma_log.md` sotto "Note metodologiche": *"Conoscenza pre-esistente nel wiki: [sintesi breve delle pagine trovate]"*
+- Questo **non sostituisce** la ricerca sistematica — è solo un orientamento iniziale per costruire query più precise
+
+Se il wiki non ha pagine rilevanti: procedi normalmente, il wiki verrà popolato al termine della review.
+
+### 1.1 — Query database (Stream 1)
 
 Costruisci le query adattando i parametri. Lancia le ricerche in parallelo.
 
@@ -360,6 +409,24 @@ with open("raw_semantic_scholar.json", "w", encoding="utf-8") as f:
 
 Aggiorna `prisma_state.json` (sezione `fase1`) e `prisma_log.md` (sezione FASE 1) con la tabella e le query esatte.
 
+### 1.5 — Stream 2: record da fonti manuali (PRISMA 2020)
+
+Se `raw_pdf_manual.json` esiste nella cartella di lavoro, riportalo nel log separatamente dal Stream 1:
+
+```
+FASE 1 — STREAM 2 (altre fonti)
+────────────────────────────────────────────────────
+Fonte                    | N record
+─────────────────────────|──────────────────────────
+PDF trovati manualmente  | N  ← da raw_pdf_manual.json
+Grey literature          | N  ← se applicabile
+Referenze di altri paper | N  ← se applicabile
+────────────────────────────────────────────────────
+TOTALE STREAM 2          | N
+```
+
+Aggiorna `prisma_state.json` con `fase1.stream2_pdf`. Il diagramma di flusso PRISMA 2020 nel report finale riporterà i due stream separatamente (Stream 1: database, Stream 2: altre fonti).
+
 Chiedi:
 > "I numeri ti sembrano ragionevoli? Vuoi affinare qualche query prima di procedere?"
 
@@ -371,7 +438,7 @@ Chiedi:
 
 Scrivi `prisma_screening.py` nella cartella di lavoro. Lo script deve:
 
-1. Leggere tutti i JSON estratti con questa mappatura per database:
+1. Leggere tutti i JSON estratti con questa mappatura per database (incluso `raw_pdf_manual.json`):
    - **Semantic Scholar**: `title`, `externalIds.DOI`, `year`, `abstract`, `authors[].name`
    - **arXiv**: `title`, `doi` (fallback: `id`), `published[:4]`, `summary`, `authors[].name`
    - **PubMed**: `Title`, `DOI`, `PubDate`, `Abstract`, `Authors[].name`
@@ -380,6 +447,7 @@ Scrivi `prisma_screening.py` nella cartella di lavoro. Lo script deve:
    - **CORE**: `title`, `doi`, `yearPublished`, `abstract`, `authors[].name`, `journals[0].title`
    - **DOAJ**: `bibjson.title`, `bibjson.identifier[doi]`, `bibjson.year`, `bibjson.abstract`, `bibjson.author[].name`
    - **Zenodo**: `metadata.title`, `metadata.doi`, `metadata.publication_date[:4]`, `metadata.description`, `metadata.creators[].name`
+   - **PDF manuali**: `title`, `doi`, `year`, `abstract`, `authors[]`, `source_db: "pdf_manual"`, `file` — già normalizzati da `extract_pdf_metadata.py`
 2. Normalizzare verso: `title`, `doi`, `year`, `abstract`, `authors`, `source_db`.
 3. Deduplicare per DOI (lowercase) e poi per titolo normalizzato (alfanumerico, lowercase).
 4. Applicare i filtri concordati (anno, lingua, tipo pub.).
@@ -582,9 +650,14 @@ Il RAG è il meccanismo principale per generare il report finale senza saturare 
 
    > ⚠️ **Fallback su `screening_prisma.json`:** questo file include i paper non eleggibili (esclusi in Fase 3). Se indicizzato nel RAG, il modello potrebbe recuperarli e citarli nel report finale, violando il guardrail anti-allucinazione della Fase 6. Segnala esplicitamente all'utente che si sta usando il fallback e valuta se filtrare il file prima dell'indicizzazione (rimuovendo i record con `included: false` se presenti).
 
-4. Se l'utente ha PDF manuali da aggiungere, chiedi:
-   > "Hai documenti PDF aggiuntivi da includere nel RAG (es. paper scaricati manualmente, linee guida)? Se sì, indicami il percorso della cartella."
-   
+4. Se esiste `pdf_manuali/` nella cartella di lavoro (Fase 0.7), indicizzala:
+   ```bash
+   py hybrid_rag.py index-pdf pdf_manuali/
+   ```
+   Questo integra il **testo completo** dei PDF nel RAG — più ricco dei soli metadati in `raw_pdf_manual.json`.
+
+   Per ulteriori PDF (linee guida, report istituzionali):
+   > "Hai altri PDF da aggiungere al RAG oltre a quelli in `pdf_manuali/`?"
    Se sì: `py hybrid_rag.py index-pdf <cartella>`
 
 5. Verifica con: `py hybrid_rag.py status`
@@ -678,7 +751,7 @@ Questa sezione trasforma la review in input operativo per un futuro studio empir
 - **Campione raccomandato:** fascia d'età, livello scolastico e contesto geografico meno studiati.
 - **Durata realistica dell'intervento:** basata sulla mediana degli studi inclusi.
 
-> **Nota:** Se si prevede di proseguire con la skill `edtech-pilot-design`, questa sezione è il documento di handoff. Condividerla nella Fase 1 di quella skill permette di saltare la raccolta manuale delle informazioni bibliografiche.
+> **Nota:** Se si prevede di proseguire con la skill `educational-pilot-design`, questa sezione è il documento di handoff. Condividerla nella Fase 1 di quella skill permette di saltare la raccolta manuale delle informazioni bibliografiche.
 
 #### 8. Riferimenti bibliografici annotati
 *Leggi da:* `prisma_bibliography.md`
@@ -706,10 +779,96 @@ Se l'utente accetta, invoca la skill **`pandoc-export`** tramite il tool `Skill`
 
 ---
 
+## Export al Wiki OpenClaw (se wiki_workspace è configurato)
+
+Dopo la generazione del report finale, esporta la conoscenza nel wiki per **persistenza a lungo termine**: le sessioni future potranno interrogare il wiki prima di avviare una nuova ricerca (Fase 1.0), trovando già sintetizzato il lavoro svolto.
+
+### A — Paper inclusi → Entity pages (esegui dopo Fase 4)
+
+Per ogni paper in `eligibility_prisma.json`, crea un file `.tmp` in `wiki-works/ricerca/entities/`. Template:
+
+```markdown
+# [Autore/i Cognome (Anno)] — [Titolo breve]
+
+**Tipo studio:** [RCT / quasi-sperimentale / qualitativo / review]
+**Campione:** [N partecipanti, contesto, paese]
+**Framework teorico:** [es. SRL, TAM, UDL]
+**Outcome principale:** [variabile dipendente e risultato]
+**Effect size:** [d/η²/r = X, IC 95%]
+**Qualità studio:** [N/6 — forte/moderata/debole]
+**DOI:** [doi]
+**Fonte PRISMA:** [nome_progetto]
+**RQ risposta:** [RQ1 / RQ2 / ...]
+
+## Contributo principale
+[2-3 frasi: cosa aggiunge alla letteratura]
+
+## Limitazioni
+[limitazioni dichiarate dagli autori]
+
+## Annotazione critica
+[perché è stato incluso, rilevanza per la review]
+```
+
+Poi esegui:
+```bash
+py wiki/scripts/wiki.py ingest \
+  --workspace [wiki_workspace] \
+  --pages [lista file .tmp separati da virgola] \
+  --log "prisma-entities | [nome_progetto]"
+```
+
+> ⚠️ **Batch processing:** con molti paper, raggruppa in batch da 10 file per evitare argomenti troppo lunghi nella command line.
+
+### B — Sintesi → Synthesis page (esegui dopo Fase 6)
+
+Crea `wiki_synthesis_[nome_progetto].tmp` da `prisma_synthesis.md`:
+
+```markdown
+# Sintesi PRISMA — [Domanda di ricerca principale]
+
+**Progetto:** [nome_progetto]  **Data:** [AAAA-MM-GG]  **N paper inclusi:** [N]
+**Database:** [lista]  **Anni coperti:** [da–a]
+
+## Risposta alle domande di ricerca
+[RQ1: ...] [RQ2: ...]
+
+## Convergenze principali (≥3 studi)
+[temi supportati da più studi indipendenti]
+
+## Divergenze e gap
+[cosa è ancora controverso, cosa non è stato studiato]
+
+## Effect size aggregati
+| Outcome | N studi | ES medio | Qualità evidenza |
+
+## Framework teorici dominanti
+[lista con frequenza]
+
+## Implicazioni per ricerca futura
+[RQ candidate per pilot, campioni sotto-studiati, strumenti consigliati]
+```
+
+Poi esegui:
+```bash
+py wiki/scripts/wiki.py ingest \
+  --workspace [wiki_workspace] \
+  --pages wiki_synthesis_[nome_progetto].tmp \
+  --log "prisma-synthesis | [nome_progetto]"
+```
+
+**Valuta §promotion:** se la sintesi è cross-dominio o citabile in ≥2 contesti diversi, promuovila da `wiki-works/ricerca/` a `wiki/` secondo i criteri del `wiki-core`.
+
+---
+
 ## Errori da evitare
 
 | Errore | Fix |
 |--------|-----|
+| PDF manuali non contati nel diagramma PRISMA | Usare sempre lo Stream 2 separato (Fase 1.5) — PRISMA 2020 richiede due stream distinti |
+| PDF scannerizzati ignorati silenziosamente | Lo script segnala i file senza testo — compilare manualmente in `raw_pdf_manual.json` |
+| Wiki export saltato per mancanza di tempo | Anche un batch parziale di entity pages ha valore — ogni paper esportato è conoscenza persistente |
+| Wiki export fatto senza verifica del path | Testare sempre `wiki_workspace` con una query di prova prima di procedere con l'ingest |
 | Saltare il Setup | Completare sempre Fase 0 prima |
 | Non creare i file di persistenza subito | Creare `prisma_state.json` e `prisma_log.md` dopo la Fase 0 |
 | Criteri di inclusione definiti dopo la lettura | Definire PRIMA di Fase 3 — evita bias di conferma |
