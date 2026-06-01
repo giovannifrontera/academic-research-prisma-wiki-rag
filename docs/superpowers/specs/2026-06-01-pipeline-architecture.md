@@ -1,7 +1,7 @@
 # Pipeline Ricerca Accademica — Architettura Completa
 
 **Data:** 2026-06-01  
-**Versione:** 1.1 — corretto ruolo wiki vs hybrid-rag e struttura workspace  
+**Versione:** 1.2 — fix numerazione, righe orfane, principio 2, wiki_workspace in state  
 **Sostituisce:** tutti i riferimenti architetturali in `pipeline-ricerca/SKILL.md`
 
 ---
@@ -99,25 +99,6 @@ Il sistema usa **due meccanismi di memoria complementari**, non intercambiabili:
 [pandoc-export]
     conversione Word / PDF
 ```
-    quantitativo: matrice dati, codebook numerico          │
-    qualitativo: trascrizioni, atlas codici, memo          │
-    mixed: entrambi in parallelo                           │
-         ↓                                                 │
-[data-analysis]    ────────────────────────────────────→  ┤
-    legge piano-analisi.json da research-design            │
-    ri-propone domande di conferma prima di procedere      │
-    suggerisce indicatori e metodi per il paradigma        │
-    guida interpretazione risultati                        │
-         ↓                                                 │
-[preprint]         ────────────────────────────────────→  ┘
-    template adattato a paradigma + dominio di ricerca
-    piattaforma target: arXiv, Zenodo, ORE, SSRN
-    produce documento pronto per submission
-         ↓
-[pandoc-export]
-    conversione Word / PDF
-```
-
 ---
 
 ## 4. Spazio di Progetto (creato da PRISMA Fase 0)
@@ -194,6 +175,8 @@ Aggiornato da ogni skill al completamento di ogni fase. Letto da `pipeline-regis
 {
   "project_name": "string",
   "project_root": "/path/assoluto/al/progetto",
+  "wiki_workspace": "/path/assoluto/al/wiki-data",
+  "wiki_project_name": "nome-progetto-in-wiki-works",
   "created_at": "ISO8601",
   "researcher": {
     "name": "string",
@@ -277,11 +260,11 @@ Aggiornato da ogni skill al completamento di ogni fase. Letto da `pipeline-regis
 
 ## 7. Skill Regista (pipeline-regista)
 
-### 6.1 Ruolo
+### 7.1 Ruolo
 
 `pipeline-regista` è la **porta d'ingresso** al sistema. Il ricercatore non deve sapere quale skill invocare — lo fa il regista in base allo stato del progetto.
 
-### 6.2 Comportamento all'avvio
+### 7.2 Comportamento all'avvio
 
 ```
 1. Esiste .project-state.json nella cartella corrente?
@@ -300,7 +283,7 @@ Aggiornato da ogni skill al completamento di ogni fase. Letto da `pipeline-regis
         → invoca la skill appropriata
 ```
 
-### 6.3 Comandi disponibili per il ricercatore
+### 7.3 Comandi disponibili per il ricercatore
 
 | Comando | Azione |
 |---------|--------|
@@ -311,7 +294,7 @@ Aggiornato da ogni skill al completamento di ogni fase. Letto da `pipeline-regis
 | `prossimo passo` | identifica la prossima azione da compiere |
 | `esporta` | invoca pandoc-export sul file preprint_bozza.md |
 
-### 6.4 Gestione dipendenze tra fasi
+### 7.4 Gestione dipendenze tra fasi
 
 Il regista verifica le dipendenze prima di consentire l'ingresso in una fase:
 
@@ -323,15 +306,67 @@ Il regista verifica le dipendenze prima di consentire l'ingresso in una fase:
 | `data-analysis` | `data-collection` completata | — |
 | `preprint` | `data-analysis` completata | — |
 
+### 7.5 Inizializzazione nuovo progetto
+
+Quando il ricercatore risponde alle domande iniziali, il regista esegue in sequenza:
+
+```
+1. Crea {project-root}/ e sottocartelle:
+   prisma/ rag_db/ design/ raccolta-dati/ analisi/ preprint/
+
+2. Crea .project-state.json con:
+   - project_name, project_root (path assoluto)
+   - wiki_workspace (chiede: "Dove si trova il tuo wiki workspace?
+     Es. C:/Users/nome/Documents/wiki-data")
+   - wiki_project_name (suggerisce: slugify(project_name))
+   - researcher.name, researcher.institution, researcher.domain
+   - tutte le fasi a status: "pending"
+   - created_at: now()
+
+3. Crea project-log.md con prima entry
+
+4. Verifica wiki workspace:
+   - Esiste {wiki_workspace}/wiki.config.json? → OK
+   - No → avvisa: "Wiki workspace non configurato.
+     Vuoi configurarlo ora? Percorso suggerito: [path]"
+   - Se OK → crea wiki-works/{wiki_project_name}/ nel workspace
+
+5. Aggiorna .project-state.json: wiki.status = "ready"
+
+6. Invoca prisma-review
+```
+
+### 7.6 Ripresa di un progetto esistente
+
+```
+1. Leggi .project-state.json → identifica current_phase e last_skill
+2. Leggi ultime 10 righe di project-log.md
+3. Presenta riepilogo sintetico:
+
+   "Progetto: [nome] | Ultimo accesso: [data]
+    ✅ PRISMA: 24 paper inclusi (completato [data])
+    ✅ RAG: indicizzato (completato [data])
+    ✅ Wiki: 25 pagine ingested (completato [data])
+    🔄 Research-design: in corso — Fase 3/6, paradigma MOD-QN1
+    ⏳ Data-collection: in attesa
+    ⏳ Data-analysis: in attesa
+    ⏳ Preprint: in attesa
+
+    Vuoi continuare con research-design Fase 3?
+    Oppure: stato / log / vai a [fase] / prossimo passo"
+
+4. Attende input e delega alla skill appropriata
+```
+
 ---
 
 ## 8. Skill: data-collection
 
-### 7.1 Attivazione
+### 8.1 Attivazione
 
 Invocata da `pipeline-regista` dopo che `research-design` ha completato la Fase 5 (piano-analisi.json generato).
 
-### 7.2 Adattamento al tipo di dati
+### 8.2 Adattamento al tipo di dati
 
 Legge `design/fase-5-analisi/piano-analisi.json` → campo `paradigm` → attiva il modulo appropriato:
 
@@ -356,7 +391,7 @@ Legge `design/fase-5-analisi/piano-analisi.json` → campo `paradigm` → attiva
 - Journal di campo per ogni ciclo
 - Template documentazione iterazioni (ciclo N: obiettivo → azione → osservazione → riflessione)
 
-### 7.3 State file (`.collection-state.json`)
+### 8.3 State file (`.collection-state.json`)
 
 ```json
 {
@@ -375,7 +410,7 @@ Legge `design/fase-5-analisi/piano-analisi.json` → campo `paradigm` → attiva
 }
 ```
 
-### 7.4 Output (handoff → data-analysis)
+### 8.4 Output (handoff → data-analysis)
 
 | File | Contenuto |
 |------|-----------|
@@ -389,11 +424,11 @@ Legge `design/fase-5-analisi/piano-analisi.json` → campo `paradigm` → attiva
 
 ## 9. Skill: data-analysis
 
-### 8.1 Attivazione
+### 9.1 Attivazione
 
 Invocata da `pipeline-regista` dopo che `data-collection` è completata.
 
-### 8.2 Fase di conferma (obbligatoria)
+### 9.2 Fase di conferma (obbligatoria)
 
 Prima di procedere, legge `design/fase-5-analisi/piano-analisi.json` e ripropone le scelte chiave al ricercatore per conferma:
 
@@ -413,7 +448,7 @@ Ho trovato il piano di analisi definito in fase di progettazione:
    → Hai JASP disponibile? Oppure preferisci R / SPSS?
 ```
 
-### 8.3 Guida per paradigma
+### 9.3 Guida per paradigma
 
 **Quantitativo:**
 - Statistiche descrittive: M, SD, range per variabile e gruppo
@@ -440,7 +475,7 @@ Ho trovato il piano di analisi definito in fase di progettazione:
 - Pattern tra cicli: cosa migliora, cosa persiste
 - Indicatori di cambiamento pratico
 
-### 8.4 Output (handoff → preprint)
+### 9.4 Output (handoff → preprint)
 
 | File | Contenuto |
 |------|-----------|
@@ -454,11 +489,11 @@ Ho trovato il piano di analisi definito in fase di progettazione:
 
 ## 10. Skill: preprint
 
-### 9.1 Attivazione
+### 10.1 Attivazione
 
 Invocata da `pipeline-regista` dopo `data-analysis` completata.
 
-### 9.2 Selezione template
+### 10.2 Selezione template
 
 Il template del preprint dipende da **due variabili**: paradigma + dominio di ricerca.
 
@@ -488,7 +523,7 @@ La skill chiede:
 2. *"Il lavoro è finanziato da un grant Horizon EU?"* (→ Open Research Europe obbligatorio se sì)
 3. *"Vuoi includere i dati grezzi come supplemento?"*
 
-### 9.3 Struttura guidata
+### 10.3 Struttura guidata
 
 Genera `preprint/preprint_bozza.md` sezione per sezione:
 - Legge i file di output da ogni fase (prisma_synthesis.md, protocollo_ricerca.md, risultati_*.md)
@@ -496,7 +531,7 @@ Genera `preprint/preprint_bozza.md` sezione per sezione:
 - Chiede input solo dove mancano decisioni autoriali (interpretazione, limitazioni, implicazioni)
 - Guardrail anti-allucinazione: tutte le citazioni da `hybrid_rag.py query` o `[CITARE: da verificare]`
 
-### 9.4 Checklist pre-submission (per piattaforma)
+### 10.4 Checklist pre-submission (per piattaforma)
 
 Genera `preprint/submission_checklist.md` con checklist specifica per la piattaforma target.
 
@@ -561,7 +596,7 @@ Il path è **esterno** a `{project-root}/` e sopravvive alla chiusura del proget
 
 ## 12. MCP Server — Stato Attuale e Gap
 
-### 11.1 Esistenti
+### 12.1 Esistenti
 
 | Server | File | Database |
 |--------|------|----------|
@@ -571,7 +606,7 @@ Il path è **esterno** a `{project-root}/` e sopravvive alla chiusura del proget
 | OpenAIRE | `mcp-servers/openaire/server.py` | European open research |
 | Zenodo | `mcp-servers/zenodo/server.py` | CERN open repository |
 
-### 11.2 Mancanti (da implementare)
+### 12.2 Mancanti (da implementare)
 
 | Server | Database | Priorità | Note |
 |--------|----------|----------|------|
@@ -579,7 +614,7 @@ Il path è **esterno** a `{project-root}/` e sopravvive alla chiusura del proget
 | **PubMed** | MEDLINE, biomedical | ALTA | Essenziale per psicopedagogia clinica |
 | **arXiv** | Preprint tecnici e educazione | MEDIA | Rilevante per Ed-Tech e AI in education |
 
-### 11.3 Struttura standard dei server MCP
+### 12.3 Struttura standard dei server MCP
 
 Tutti i server seguono lo stesso pattern (vedi `mcp-servers/eric/server.py` come riferimento):
 - Tool: `search_{database}(query, limit, filters)` → lista paper con metadati
@@ -618,7 +653,7 @@ Tutti i server seguono lo stesso pattern (vedi `mcp-servers/eric/server.py` come
 
 1. **Zero perdita di dati tra sessioni:** ogni skill aggiorna il proprio state file alla fine di ogni interazione significativa, anche se interrotta a metà.
 
-2. **Autonomia dello spazio di progetto:** tutto vive nella cartella di progetto — nessun file fuori da essa, nessuna dipendenza da path assoluti hardcoded.
+2. **Autonomia dello spazio di progetto:** tutto il materiale di ricerca vive nella cartella di progetto. I path (project_root, wiki_workspace) sono configurabili e registrati in `.project-state.json` — nessun path hardcoded nel codice delle skill.
 
 3. **Regista come unico punto di ingresso:** il ricercatore invoca sempre `pipeline-regista`. Le skill individuali possono essere invocate direttamente per uso avanzato, ma il flusso normale passa dal regista.
 
