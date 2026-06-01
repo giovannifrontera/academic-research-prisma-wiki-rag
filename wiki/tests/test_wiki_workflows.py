@@ -100,42 +100,7 @@ def test_lint_full_reports_semantic_duplicates(tmp_workspace, monkeypatch):
     assert semantic[0]["action"] == "auto_merge"
 
 
-def test_cmd_behavior_log_writes_event(tmp_workspace, monkeypatch):
-    import wiki_workflows
-    import io, sys
 
-    class Args:
-        workspace = str(tmp_workspace)
-        event = "rispondo sempre troppo lungo"
-
-    captured = io.StringIO()
-    monkeypatch.setattr(sys, "stdout", captured)
-    cfg = json.loads((tmp_workspace / "wiki.config.json").read_text())
-    wiki_workflows.cmd_behavior_log(Args(), cfg)
-
-    output = json.loads(captured.getvalue())
-    assert output["status"] == "ok"
-    assert output["event"] == "rispondo sempre troppo lungo"
-    log_path = tmp_workspace / ".wiki-behavior-log.jsonl"
-    assert log_path.exists()
-
-
-def test_cmd_self_reflect_returns_ok(tmp_workspace, monkeypatch):
-    import wiki_workflows
-    import io, sys
-    from wiki_selfreflect import log_behavior
-
-    class Args:
-        workspace = str(tmp_workspace)
-
-    cfg = json.loads((tmp_workspace / "wiki.config.json").read_text())
-
-    for _ in range(3):
-        log_behavior(str(tmp_workspace), "non cito mai le fonti")
-
-    captured = io.StringIO()
-    monkeypatch.setattr(sys, "stdout", captured)
-    wiki_workflows.cmd_self_reflect(Args(), cfg)
 
     output = json.loads(captured.getvalue())
     assert output["status"] == "ok"

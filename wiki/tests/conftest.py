@@ -33,10 +33,6 @@ def tmp_workspace(tmp_path):
             "dedup_auto": 0.90,
             "dedup_warn": 0.75,
         },
-        "self_reflection": {
-            "enabled": True,
-            "correction_threshold": 3,
-        },
         "lancedb": {
             "path": "memory/lancedb",
             "embedding_model": "BAAI/bge-m3"
