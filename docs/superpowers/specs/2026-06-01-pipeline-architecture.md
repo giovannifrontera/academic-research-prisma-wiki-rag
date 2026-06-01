@@ -1,7 +1,7 @@
 # Pipeline Ricerca Accademica — Architettura Completa
 
 **Data:** 2026-06-01  
-**Versione:** 1.0  
+**Versione:** 1.1 — corretto ruolo wiki vs hybrid-rag e struttura workspace  
 **Sostituisce:** tutti i riferimenti architetturali in `pipeline-ricerca/SKILL.md`
 
 ---
@@ -14,7 +14,46 @@ Un sistema di skill coordinate che guida un ricercatore in scienze dell'educazio
 
 ---
 
-## 2. Architettura a Skill Coordinate
+## 2. Due Sistemi di Memoria — Ruoli Distinti
+
+Il sistema usa **due meccanismi di memoria complementari**, non intercambiabili:
+
+| | **Wiki** (LanceDB bge-m3) | **hybrid-rag** (LanceDB/ChromaDB) |
+|--|--------------------------|----------------------------------|
+| **Scope** | Cross-progetto, permanente | Locale al singolo progetto |
+| **Workspace** | Directory separata configurata in `wiki/wiki.config.json` | `{project-root}/rag_db/` |
+| **Cosa contiene** | Entity pages strutturate dei paper + sintesi distillate | Chunks dei paper per retrieval RAG |
+| **Costruito quando** | `wiki ingest` dopo PRISMA Fase 4 e 6 | `hybrid_rag.py index-prisma` dopo PRISMA Fase 4 |
+| **Query** | `wiki.py query --q "..."` — risposta semantica narrativa | `hybrid_rag.py query "..."` — chunks rilevanti |
+| **Usato da** | Tutte le fasi per conoscenza trasversale | Preprint e report per guardrail anti-allucinazione |
+| **Promossa a livello superiore** | Sì: `wiki-works/{proj}/` → `wiki/` se cross-progetto | No — rimane locale |
+
+### Wiki Workspace Structure (separato da {project-root})
+
+```
+{wiki-workspace}/                    ← configurato in wiki/wiki.config.json
+│                                       path ESTERNO al progetto, condiviso tra ricerche
+├── wiki/                            ← conoscenza permanente cross-progetto
+│   ├── .schema.md
+│   ├── log.md                       ← append-only
+│   ├── concepts/
+│   └── synthesis/
+│
+├── wiki-works/
+│   └── {project-name}/              ← attivato per questa ricerca
+│       ├── .schema.md
+│       ├── log.md
+│       ├── entities/                ← una pagina per ogni paper incluso
+│       ├── concepts/
+│       └── synthesis/
+│
+└── memory/
+    └── lancedb/                     ← indice vettoriale bge-m3 (ricostruibile)
+```
+
+---
+
+## 3. Architettura a Skill Coordinate
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -27,27 +66,39 @@ Un sistema di skill coordinate che guida un ricercatore in scienze dell'educazio
     ▼                    ▼                          ▼
 
 [MCP Servers bibliografici]
-    Semantic Scholar · PubMed · arXiv
-    CORE · DOAJ · ERIC · OpenAIRE · Zenodo
+    Semantic Scholar · PubMed · arXiv          ← mancanti, da implementare
+    CORE · DOAJ · ERIC · OpenAIRE · Zenodo     ← esistenti
          ↓
 [prisma-review]
-    PICO + RQ + ipotesi
-    selezione e screening articoli
-    sintesi sistematica
+    Pre-PRISMA: wiki query (conoscenza pre-esistente cross-progetto)
+    PICO + RQ + ipotesi + selezione articoli
+    Post-PRISMA Fase 4: wiki ingest entity pages + hybrid-rag index-prisma
+    Post-PRISMA Fase 6: wiki ingest synthesis page
          ↓
-[hybrid-rag + wiki] ←─────────────────────────────────────┐
-    MEMORIA PERSISTENTE CROSS-SESSIONE                     │
-    indicizzazione articoli selezionati                    │ ogni skill
-    query semantica durante tutte le fasi                  │ legge e scrive
-    export entità su wiki per navigazione                  │ su wiki/rag
-         ↓                                                 │
-[research-design]  ────────────────────────────────────→  ┤
-    Fase 0: scelta paradigma (decision tree)               │
-    Fase 1-6: framework, design, strumenti,                │
-              procedura, piano analisi, preprint bozza     │
-         ↓                                                 │
-[data-collection]  ────────────────────────────────────→  ┤
-    adattato al tipo di dati (paradigma scelto)            │
+         ├──→ wiki-works/{progetto}/   [entity pages + sintesi — memoria permanente]
+         └──→ rag_db/                  [chunks indicizzati — retrieval locale]
+         ↓
+[research-design]
+    Fase 0: scelta paradigma (decision tree)
+    Fase 1-6: framework, design, strumenti, procedura, piano analisi
+    Usa: wiki query per framework cross-progetto
+         ↓
+[data-collection]
+    adattato al tipo di dati (paradigma scelto)
+    Usa: wiki query per strumenti usati in letteratura
+         ↓
+[data-analysis]
+    conferma piano + guida analisi per paradigma
+    Usa: wiki query per benchmarking effect size da letteratura
+         ↓
+[preprint]
+    template per paradigma × piattaforma target
+    Usa: hybrid_rag query per ogni citazione (guardrail anti-allucinazione)
+         Usa: wiki query per conoscenza cross-progetto
+         ↓
+[pandoc-export]
+    conversione Word / PDF
+```
     quantitativo: matrice dati, codebook numerico          │
     qualitativo: trascrizioni, atlas codici, memo          │
     mixed: entrambi in parallelo                           │
@@ -69,29 +120,38 @@ Un sistema di skill coordinate che guida un ricercatore in scienze dell'educazio
 
 ---
 
-## 3. Spazio di Progetto (creato da PRISMA Fase 0)
+## 4. Spazio di Progetto (creato da PRISMA Fase 0)
 
 Ogni ricerca ha una cartella radice dedicata. **Tutta la ricerca vive lì.** Il ricercatore non deve mai copiare file tra cartelle.
 
 ```
 {project-root}/                          ← creato da pipeline-regista o prisma-review Fase 0
-│
+│                                           NON contiene la wiki (workspace separato)
 ├── .project-state.json                  ← MASTER STATE — stato di ogni fase
 ├── project-log.md                       ← AUDIT LOG append-only — ogni sessione scrive qui
 │
 ├── prisma/                              ← output di prisma-review
 │   ├── prisma_state.json
 │   ├── prisma_log.md
+│   ├── raw_semantic_scholar.json        ← risultati grezzi da ogni MCP (Fase 1)
+│   ├── raw_pubmed.json
+│   ├── raw_arxiv.json
+│   ├── raw_eric.json
+│   ├── raw_openaire.json
+│   ├── raw_core.json
+│   ├── raw_doaj.json
+│   ├── raw_zenodo.json
+│   ├── screening_prisma.json
 │   ├── eligibility_prisma.json
 │   ├── extraction_table.json
 │   ├── prisma_synthesis.md              ← handoff critico → research-design
 │   └── prisma_bibliography.md
 │
-├── rag_db/                              ← database RAG (hybrid-rag)
+├── rag_db/                              ← hybrid-rag index (locale, solo questo progetto)
 │   └── config.json
 │
-├── wiki/                                ← spazio wiki (OpenClaw)
-│   └── [entity pages per paper + synthesis]
+│   [wiki-workspace separato]           ← NON qui — vedi §2
+│   wiki-works/{project-name}/          ← entity pages paper + sintesi (LanceDB bge-m3)
 │
 ├── design/                              ← output di research-design
 │   ├── .research-state.json
@@ -126,7 +186,7 @@ Ogni ricerca ha una cartella radice dedicata. **Tutta la ricerca vive lì.** Il 
 
 ---
 
-## 4. Master State File (`.project-state.json`)
+## 5. Master State File (`.project-state.json`)
 
 Aggiornato da ogni skill al completamento di ogni fase. Letto da `pipeline-regista` per sapere dove si è arrivati.
 
@@ -186,7 +246,7 @@ Aggiornato da ogni skill al completamento di ogni fase. Letto da `pipeline-regis
 
 ---
 
-## 5. Audit Log (`project-log.md`)
+## 6. Audit Log (`project-log.md`)
 
 **Append-only.** Ogni skill aggiunge entry — mai sovrascrive. Consente di ricostruire l'intera storia decisionale anche senza aprire i file di stato.
 
@@ -215,7 +275,7 @@ Aggiornato da ogni skill al completamento di ogni fase. Letto da `pipeline-regis
 
 ---
 
-## 6. Skill Regista (pipeline-regista)
+## 7. Skill Regista (pipeline-regista)
 
 ### 6.1 Ruolo
 
@@ -265,7 +325,7 @@ Il regista verifica le dipendenze prima di consentire l'ingresso in una fase:
 
 ---
 
-## 7. Skill: data-collection
+## 8. Skill: data-collection
 
 ### 7.1 Attivazione
 
@@ -327,7 +387,7 @@ Legge `design/fase-5-analisi/piano-analisi.json` → campo `paradigm` → attiva
 
 ---
 
-## 8. Skill: data-analysis
+## 9. Skill: data-analysis
 
 ### 8.1 Attivazione
 
@@ -392,7 +452,7 @@ Ho trovato il piano di analisi definito in fase di progettazione:
 
 ---
 
-## 9. Skill: preprint
+## 10. Skill: preprint
 
 ### 9.1 Attivazione
 
@@ -450,35 +510,56 @@ Genera `preprint/submission_checklist.md` con checklist specifica per la piattaf
 
 ---
 
-## 10. Ruolo di Wiki + RAG come Memoria Persistente
+## 11. Wiki e hybrid-rag: Quando Usare Cosa
 
-### 10.1 Cosa viene memorizzato e quando
+### 11.1 Flusso di scrittura (quando ogni skill alimenta la memoria)
 
-| Fase | Cosa scrive su Wiki/RAG | Cosa legge da Wiki/RAG |
-|------|------------------------|----------------------|
-| prisma-review | Entity page per ogni paper incluso; synthesis page | — |
-| research-design | Framework teorici selezionati; ipotesi formulate | Paper rilevanti per il framework scelto |
-| data-collection | — | Strumenti usati in letteratura (per confronto) |
-| data-analysis | — | Effect size dalla letteratura (per benchmarking) |
-| preprint | — | Citazioni per ogni sezione |
+| Momento | Sistema | Azione | Comando |
+|---------|---------|--------|---------|
+| Prima di PRISMA Fase 1 | Wiki | Query conoscenza pre-esistente | `wiki.py query --q "PICO topic" --k 5` |
+| Dopo PRISMA Fase 4 | Wiki | Ingest entity pages (una per paper) | `wiki.py ingest --pages entity-*.tmp` |
+| Dopo PRISMA Fase 4 | hybrid-rag | Index paper per retrieval RAG | `hybrid_rag.py index-prisma eligibility_prisma.json` |
+| Dopo PRISMA Fase 6 | Wiki | Ingest synthesis page | `wiki.py ingest --pages synthesis.tmp` |
 
-### 10.2 Comandi RAG disponibili a tutte le skill
+### 11.2 Flusso di lettura (quando ogni skill interroga la memoria)
 
-```bash
-py hybrid_rag.py query "<costrutto>" --n 3          # recupera paper rilevanti
-py hybrid_rag.py query "<strumento>" --filter year>=2020 --n 5
-py hybrid_rag.py status                              # verifica stato indice
+| Skill | Sistema | Cosa cerca | Comando |
+|-------|---------|-----------|---------|
+| research-design | Wiki | Framework teorici cross-progetto | `wiki.py query --q "framework [dominio]" --k 3` |
+| data-collection | Wiki | Strumenti usati in letteratura simile | `wiki.py query --q "strumenti [costrutto]" --k 3` |
+| data-analysis | Wiki | Effect size di riferimento dalla letteratura | `wiki.py query --q "effect size [intervento]" --k 3` |
+| preprint | hybrid-rag | Chunks per ogni citazione | `hybrid_rag.py query "[costrutto]" --n 3` |
+| preprint | Wiki | Sintesi cross-progetto per discussione | `wiki.py query --q "[tema discussione]" --k 3` |
+
+### 11.3 Struttura delle entity pages (wiki-works/{proj}/entities/)
+
+```markdown
+# [Titolo Paper]
+
+**Autori:** [lista] | **Anno:** YYYY | **DOI:** [doi]
+**Database origine:** Semantic Scholar / PubMed / arXiv / ...
+**Outcome:** [outcome principale] | **Effect size:** d=[X]
+**Framework:** [framework teorico]
+**Strumenti:** [lista strumenti usati]
+**Campione:** N=[X], [livello scolastico], [paese]
+**Qualità:** [punteggio 0-6]
+
+## Abstract
+[abstract completo o estratto]
+
+## Note per il progetto
+[note specifiche sulla rilevanza per questa ricerca]
 ```
 
-### 10.3 Wiki (OpenClaw)
+### 11.4 Configurazione wiki workspace
 
-- Entity page per ogni paper: titolo, autori, anno, abstract, outcome, framework, strumenti
-- Synthesis page: mappa tematica risultati PRISMA
-- Navigabile durante tutte le fasi successive
+`wiki/wiki.config.json` → campo `"workspace"` = path assoluto alla directory dati (es. `C:/Users/nome/Documents/wiki-data`).
+
+Il path è **esterno** a `{project-root}/` e sopravvive alla chiusura del progetto.
 
 ---
 
-## 11. MCP Server — Stato Attuale e Gap
+## 12. MCP Server — Stato Attuale e Gap
 
 ### 11.1 Esistenti
 
@@ -507,7 +588,7 @@ Tutti i server seguono lo stesso pattern (vedi `mcp-servers/eric/server.py` come
 
 ---
 
-## 12. Roadmap Implementazione
+## 13. Roadmap Implementazione
 
 ### Fase A — Fondamenta (prerequisito per tutto)
 1. **pipeline-regista** — skill interattiva (senza regista, il sistema non ha punto di ingresso)
@@ -533,7 +614,7 @@ Tutti i server seguono lo stesso pattern (vedi `mcp-servers/eric/server.py` come
 
 ---
 
-## 13. Principi di Design (non negoziabili)
+## 14. Principi di Design (non negoziabili)
 
 1. **Zero perdita di dati tra sessioni:** ogni skill aggiorna il proprio state file alla fine di ogni interazione significativa, anche se interrotta a metà.
 
