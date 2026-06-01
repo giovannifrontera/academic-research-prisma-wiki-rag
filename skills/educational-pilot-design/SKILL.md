@@ -1,3 +1,5 @@
+> ⚠️ **DEPRECATA** — Sostituita da `research-design`, che guida la scelta tra 11 paradigmi di ricerca (qualitativo, quantitativo, misto, ricerca-azione, DBR) e si integra nello spazio progetto unificato della pipeline PRISMA → preprint. I progetti esistenti con `protocollo_ricerca.md` vengono ripresi automaticamente da `research-design`.
+
 ---
 name: educational-pilot-design
 description: Usa quando occorre progettare uno studio pilota o quasi-sperimentale nell'ambito delle scienze dell'educazione: Ed-Tech, psicopedagogia, pedagogia speciale e inclusiva, didattica disciplinare, valutazione educativa, formazione docenti, pedagogia generale — a qualsiasi livello scolastico (infanzia, primaria, secondaria I e II grado, università, formazione professionale). Contesto normativo italiano centrale (MIUR, GDPR, L.104/92, L.170/2010), con possibilità di override internazionale. Non usare per revisioni sistematiche (usa prisma-review) o studi osservazionali puri senza intervento.
@@ -270,7 +272,7 @@ Per studi Ed-Tech con chatbot o piattaforme AI: le conversazioni possono contene
 - t-test appaiati per within-subjects
 - Riporta sempre effect size (Cohen's d o η²) e IC 95%
 - **Missing data:** definisci strategia a priori (listwise deletion solo se MCAR verificato; altrimenti multiple imputation o FIML)
-- Verifica assunzioni ANCOVA: normalità residui, omoschedasticità, omogeneità dei pendii di regressione
+- Verifica assunzioni ANCOVA: normalità residui, omoschedasticittà, omogeneità dei pendii di regressione
 - Per campioni piccoli (tipici dei pilot): valuta test non parametrici come alternativa robusta (Mann-Whitney U, Wilcoxon)
 
 **5b. Analisi Qualitativa — Thematic Analysis Riflessiva (Braun & Clarke, 2006; 2021)**
