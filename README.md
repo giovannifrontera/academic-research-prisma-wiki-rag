@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 # 🔬 academic-PRISMA-research-workflow
 
@@ -6,7 +6,7 @@
 
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-cc785c?style=flat-square&logo=anthropic&logoColor=white)](https://claude.ai/code)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![MCP](https://img.shields.io/badge/MCP-6_servers-1a7f37?style=flat-square)](https://modelcontextprotocol.io)
+[![MCP](https://img.shields.io/badge/MCP-8_servers-1a7f37?style=flat-square)](https://modelcontextprotocol.io)
 [![PRISMA](https://img.shields.io/badge/PRISMA-2020-8b1a1a?style=flat-square)](https://www.prisma-statement.org)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
@@ -30,13 +30,13 @@ This workflow transforms Claude Code into a **specialised research orchestrator*
 The workflow follows the [PRISMA 2020 statement](https://www.prisma-statement.org) (Page et al., 2021) — the current international standard for reporting systematic reviews. All pipeline stages map directly to the PRISMA flow diagram: identification, screening, eligibility, and inclusion.
 
 ### Evidence-Based Education & Visible Learning
-The research design module is grounded in Hattie's synthesis of 800+ meta-analyses (Hattie, 2009). Effect size thresholds (d > 0.40) and construct validity criteria follow Visible Learning methodology, ensuring that pilot study designs are calibrated against established benchmarks.
+The research design module is grounded in Hattie’s synthesis of 800+ meta-analyses (Hattie, 2009). Effect size thresholds (d > 0.40) and construct validity criteria follow Visible Learning methodology, ensuring that pilot study designs are calibrated against established benchmarks.
 
 ### Campbell Collaboration & Cochrane Methodology
-Quality assessment criteria follow the Campbell Collaboration's systematic review standards (Campbell Collaboration, 2023) and Cochrane's risk-of-bias framework — adapted for educational and social science contexts where randomisation is often infeasible.
+Quality assessment criteria follow the Campbell Collaboration’s systematic review standards (Campbell Collaboration, 2023) and Cochrane’s risk-of-bias framework — adapted for educational and social science contexts where randomisation is often infeasible.
 
 ### Open Science Principles
-All research outputs target open repositories (Zenodo, OpenAIRE) and open-access journals (DOAJ). The workflow aligns with Nosek et al.'s (2015) open research culture principles: pre-registration, data sharing, and reproducible analysis pipelines.
+All research outputs target open repositories (Zenodo, OpenAIRE) and open-access journals (DOAJ). The workflow aligns with Nosek et al.’s (2015) open research culture principles: pre-registration, data sharing, and reproducible analysis pipelines.
 
 ---
 
@@ -80,7 +80,7 @@ research-state/
 
 | Phase | Automation | Human Gate |
 |---|---|---|
-| **1. Identification** | Multi-database query via MCP (ERIC, OpenAIRE, Semantic Scholar, CORE) | Confirm search strings |
+| **1. Identification** | Multi-database query via MCP (ERIC, OpenAIRE, Semantic Scholar, CORE, arXiv, PubMed) | Confirm search strings |
 | **2. Deduplication** | DOI normalisation + title fuzzy matching | Review edge cases |
 | **3. Title/Abstract Screening** | LLM classification against PICO criteria | Validate exclusion log |
 | **4. Full-text Eligibility** | PDF extraction + eligibility checklist | Confirm borderline cases |
@@ -114,7 +114,7 @@ Supports: APA 7th · Chicago 17 · Vancouver · journal-specific CSL styles.
 
 ## 🌐 Academic MCP Servers
 
-Six custom MCP servers connect Claude directly to the global academic record:
+Eight custom MCP servers connect Claude directly to the global academic record:
 
 | Server | Coverage | Key Use Case |
 |---|---|---|
@@ -123,7 +123,9 @@ Six custom MCP servers connect Claude directly to the global academic record:
 | **CORE** | 200M+ open-access full texts | Full-text eligibility screening |
 | **DOAJ** | Peer-reviewed open-access journals | Journal quality verification |
 | **Zenodo** | Preprints, datasets, Horizon Europe deliverables | Grey literature + datasets |
-| **Semantic Scholar** | Citation graph + semantic similarity | Related work discovery |
+| **Semantic Scholar** | 200M+ papers, citation graph + semantic similarity | Related work discovery, citation tracking |
+| **arXiv** | CS, AI/ML, Math, Physics, Economics preprints | Preprint retrieval + early access |
+| **PubMed / PMC** | 35M+ biomedical citations + open-access full texts | Clinical studies, health sciences, systematic reviews |
 
 Each server implements the [Model Context Protocol](https://modelcontextprotocol.io) specification, exposing search, fetch, and metadata tools that Claude invokes autonomously during pipeline execution.
 
@@ -166,8 +168,8 @@ synthesis.md → [Pandoc 3.x] → PDF (LaTeX engine: xelatex)
 
 ```bash
 # Clone the repo
-git clone https://github.com/giovannifrontera/academic-PRISMA-research-workflow
-cd academic-PRISMA-research-workflow
+git clone https://github.com/giovannifrontera/academic-research-prisma-wiki-rag
+cd academic-research-prisma-wiki-rag
 
 # Copy skills to Claude Code
 cp -r skills/* ~/.claude/skills/          # Linux/Mac
@@ -180,12 +182,24 @@ cp -r skills/* ~/.claude/skills/          # Linux/Mac
 claude mcp add eric python mcp-servers/eric/server.py
 claude mcp add openaire python mcp-servers/openaire/server.py
 claude mcp add core python mcp-servers/core/server.py
+claude mcp add doaj python mcp-servers/doaj/server.py
+claude mcp add zenodo python mcp-servers/zenodo/server.py
 claude mcp add semantic-scholar python mcp-servers/semantic-scholar/server.py
+claude mcp add arxiv python mcp-servers/arxiv/server.py
+claude mcp add pubmed python mcp-servers/pubmed/server.py
 ```
 
-See `docs/mcp-setup.md` for full configuration including API keys.
+See `docs/mcp-setup.md` for full configuration including optional API keys.
 
-### 3. Start a Review
+### 3. Optional API Keys
+
+| Server | Env Var | Benefit | Get Key |
+|---|---|---|---|
+| CORE | `CORE_API_KEY` | Remove severe rate limits | [core.ac.uk/services/api](https://core.ac.uk/services/api) |
+| Semantic Scholar | `S2_API_KEY` | 100 req/5min → unlimited | [semanticscholar.org/product/api](https://www.semanticscholar.org/product/api) |
+| PubMed | `NCBI_API_KEY` | 3 req/s → 10 req/s | [ncbi.nlm.nih.gov/account](https://www.ncbi.nlm.nih.gov/account/) |
+
+### 4. Start a Review
 
 Open Claude Code in any project directory and invoke:
 
