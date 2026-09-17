@@ -163,10 +163,10 @@ def test_build_graph_semantic_edges(tmp_workspace, monkeypatch):
         def to_pandas(self):
             return fake_df
 
-    monkeypatch.setattr(wiki_graph, "_LANCEDB_AVAILABLE", True)
-    monkeypatch.setattr(wiki_graph, "_lancedb_get_db", lambda path: object())
-    monkeypatch.setattr(wiki_graph, "_lancedb_ensure_table", lambda db, table_name="wiki_pages": FakeTable())
-    monkeypatch.setattr(wiki_graph, "_lancedb_query_similar", lambda db, vec, k=5, path_prefix=None: [
+    monkeypatch.setattr(wiki_graph, "_QDRANT_AVAILABLE", True)
+    monkeypatch.setattr(wiki_graph, "_qdrant_get_db", lambda path: object())
+    monkeypatch.setattr(wiki_graph, "_qdrant_ensure_table", lambda db, table_name="wiki_pages": FakeTable())
+    monkeypatch.setattr(wiki_graph, "_qdrant_query_similar", lambda db, vec, k=5, path_prefix=None: [
         {"path": "wiki/concepts/transformer.md", "_distance": 0.1,
          "chunk_id": 0, "chunk_text": "transformer"},
     ])
@@ -208,7 +208,7 @@ def test_mark_dirty_forces_rebuild(tmp_workspace):
 
 def test_query_log_written(tmp_workspace, monkeypatch):
     import wiki_workflows
-    import wiki_lancedb
+    import wiki_qdrant
     import wiki_embed
 
     def fake_query_similar(db, vector, k=5, path_prefix=None):
@@ -220,8 +220,8 @@ def test_query_log_written(tmp_workspace, monkeypatch):
             import numpy as np
             return np.zeros(1024)
 
-    monkeypatch.setattr(wiki_lancedb, "query_similar", fake_query_similar)
-    monkeypatch.setattr(wiki_lancedb, "get_db", lambda path: object())
+    monkeypatch.setattr(wiki_qdrant, "query_similar", fake_query_similar)
+    monkeypatch.setattr(wiki_qdrant, "get_db", lambda path: object())
     monkeypatch.setattr(wiki_embed, "_load_model", lambda name: (FakeModel(), None))
     # wiki_workflows imports these names directly at module level, so patch there too
     monkeypatch.setattr(wiki_workflows, "query_similar", fake_query_similar)

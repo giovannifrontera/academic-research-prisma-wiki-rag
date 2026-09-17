@@ -35,32 +35,27 @@ def check(workspace: str) -> list[str]:
         issues.append("wiki.config.json is not valid JSON")
         return issues
 
-    ldb_rel = cfg.get("lancedb", {}).get("path", "")
-    if not ldb_rel:
-        issues.append("wiki.config.json: lancedb.path field missing")
+    qdrant_rel = cfg.get("qdrant", {}).get("path", "")
+    if not qdrant_rel:
+        issues.append("wiki.config.json: qdrant.path field missing")
     else:
-        ldb_path = ws / ldb_rel
-        if not ldb_path.exists():
-            issues.append(f"LanceDB not found at {ldb_path} — run: wiki.py rebuild")
+        qdrant_path = ws / qdrant_rel
+        if not qdrant_path.exists():
+            issues.append(f"Qdrant store not found at {qdrant_path} — run: wiki.py rebuild")
         else:
-            # Separate import from connection: lancedb.connect() internally triggers
-            # ImportErrors for Unix-only modules (posix, fcntl, adlfs) on Windows.
-            # A broad except ImportError would misidentify these as missing lancedb.
             try:
-                import lancedb
+                import wiki_qdrant
             except ImportError:
-                issues.append("lancedb not installed — run: pip install -r requirements.txt")
+                issues.append("qdrant-client not installed — run: pip install -r requirements.txt")
             else:
                 try:
-                    db = lancedb.connect(str(ldb_path))
-                    table_result = db.list_tables()
-                    tables = getattr(table_result, "tables", None) or list(table_result)
-                    if "wiki_pages" not in tables:
-                        issues.append("wiki_pages table not found — run: wiki.py rebuild")
-                    elif db.open_table("wiki_pages").count_rows() == 0:
+                    db = wiki_qdrant.get_db(str(qdrant_path))
+                    if not wiki_qdrant.collection_exists(db, "wiki_pages"):
+                        issues.append("wiki_pages collection not found — run: wiki.py rebuild")
+                    elif wiki_qdrant.count_rows(db, "wiki_pages") == 0:
                         issues.append("wiki_pages is empty — run: wiki.py rebuild")
                 except Exception as e:
-                    issues.append(f"LanceDB error: {e}")
+                    issues.append(f"Qdrant error: {e}")
 
     return issues
 

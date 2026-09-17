@@ -15,11 +15,11 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 sys.path.insert(0, str(Path(__file__).parent))
 import wiki_graph  # noqa: E402
 try:
-    import wiki_lancedb as _wiki_lancedb
+    import wiki_qdrant as _wiki_qdrant
     from wiki_index import EXCLUDED_NAMES as _EXCLUDED_NAMES
-    _LANCEDB_IMPORT_OK = True
+    _QDRANT_IMPORT_OK = True
 except ImportError:
-    _LANCEDB_IMPORT_OK = False
+    _QDRANT_IMPORT_OK = False
     _EXCLUDED_NAMES: set = set()
 
 _workspace: str = ""
@@ -172,13 +172,13 @@ def _build_stats() -> dict:
     unembedded_pages: list = []
     total_chunks = 0
     embedding_coverage_pct = 0.0
-    if _LANCEDB_IMPORT_OK:
+    if _QDRANT_IMPORT_OK:
         try:
-            lancedb_path = os.path.join(
-                _workspace, _cfg.get("lancedb", {}).get("path", "memory/lancedb")
+            qdrant_path = os.path.join(
+                _workspace, _cfg.get("qdrant", {}).get("path", "memory/qdrant")
             )
-            db = _wiki_lancedb.get_db(lancedb_path)
-            table = _wiki_lancedb.ensure_table(db)
+            db = _wiki_qdrant.get_db(qdrant_path)
+            table = _wiki_qdrant.ensure_table(db)
             df = table.to_pandas()
             total_chunks = len(df)
             embedded_paths = set(df["path"].unique())
@@ -257,7 +257,7 @@ async def _get_embed_model():
             for _name in ("sentence_transformers", "transformers", "huggingface_hub"):
                 _logging.getLogger(_name).setLevel(_logging.ERROR)
             from sentence_transformers import SentenceTransformer
-            model_name = _cfg.get("lancedb", {}).get("embedding_model", "BAAI/bge-m3")
+            model_name = _cfg.get("qdrant", {}).get("embedding_model", "BAAI/bge-m3")
             loop = asyncio.get_event_loop()
             _embed_model = await loop.run_in_executor(
                 None, lambda: SentenceTransformer(model_name, device="cpu")
@@ -275,7 +275,7 @@ async def api_context(request: Request, q: str = "", k: int = 3, max_chars: int 
     peer = (request.client.host if request.client else None)
     if peer not in _LOCALHOST_ADDRS:
         return PlainTextResponse("", status_code=403)
-    if not q.strip() or not _LANCEDB_IMPORT_OK or not _workspace:
+    if not q.strip() or not _QDRANT_IMPORT_OK or not _workspace:
         return PlainTextResponse("", status_code=200)
 
     import fnmatch as _fnmatch
@@ -284,13 +284,9 @@ async def api_context(request: Request, q: str = "", k: int = 3, max_chars: int 
         vector = await asyncio.get_event_loop().run_in_executor(
             None, lambda: model.encode(q, normalize_embeddings=True).tolist()
         )
-        lancedb_path = os.path.join(_workspace, _cfg.get("lancedb", {}).get("path", "memory/lancedb"))
-        db = _wiki_lancedb.get_db(lancedb_path)
-        existing_tables = getattr(db.list_tables(), "tables", None) or list(db.list_tables())
-        if "wiki_pages" not in existing_tables:
-            return PlainTextResponse("", status_code=200)
-        table = db.open_table("wiki_pages")
-        raw = table.search(vector).limit(k * 4).to_list()
+        qdrant_path = os.path.join(_workspace, _cfg.get("qdrant", {}).get("path", "memory/qdrant"))
+        db = _wiki_qdrant.get_db(qdrant_path)
+        raw = _wiki_qdrant.query_similar(db, vector, k=k * 4)
 
         exclude_patterns = _cfg.get("exclude_from_index", [])
         seen: dict = {}
@@ -305,7 +301,28 @@ async def api_context(request: Request, q: str = "", k: int = 3, max_chars: int 
             if path not in seen or dist < seen[path]["dist"]:
                 seen[path] = {"dist": dist, "chunk_text": chunk[:max_chars]}
 
-        top = sorted(seen.items(), key=lambda x: x[1]["dist"])[:k]
+        candidates = [{"path": p, **info} for p, info in seen.items()]
+        candidates.sort(key=lambda x: x["dist"])
+
+        rerank_enabled = _cfg.get("qdrant", {}).get("rerank", True)
+        if rerank_enabled and candidates:
+            try:
+                from wiki_rerank import rerank as _rerank, DEFAULT_MODEL as _RERANK_DEFAULT
+                reranker_model = _cfg.get("qdrant", {}).get("reranker_model", _RERANK_DEFAULT)
+                reranked = await asyncio.get_event_loop().run_in_executor(
+                    None, lambda: _rerank(q, candidates, top_k=k, text_key="chunk_text",
+                                          model_name=reranker_model)
+                )
+                candidates = reranked
+            except Exception:
+                # ponytail: se il modello reranker non è scaricabile (offline) o
+                # sentence-transformers non è installato, degrada silenziosamente
+                # all'ordinamento per sola similarità vettoriale.
+                candidates = candidates[:k]
+        else:
+            candidates = candidates[:k]
+
+        top = [(c["path"], c) for c in candidates]
 
         # Stale .tmp check — surfaced regardless of search results
         stale_tmp = []

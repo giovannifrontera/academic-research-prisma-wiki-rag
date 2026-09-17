@@ -57,7 +57,7 @@ Questo progetto risolve il problema con un'**architettura a doppia rappresentazi
         │
         ▼
 ┌───────────────────┐     ┌──────────────────────────┐
-│  File Markdown    │     │  LanceDB vector store     │
+│  File Markdown    │     │  Qdrant vector store     │
 │  wiki/concepts/   │◄────►  embedding bge-m3         │
 │  rag.md           │     │  (1024-dim, indice HNSW)  │
 └───────────────────┘     └──────────────────────────┘
@@ -77,7 +77,7 @@ Una query su *"come gli LLM gestiscono il contesto lungo"* recupera pagine su *"
 Embedding [bge-m3](https://huggingface.co/BAAI/bge-m3) — multilingua (100+ lingue), 1024 dim, indice HNSW. Le query recuperano per significato. Nessun passo di re-indicizzazione. Il vector DB è l'indice, mantenuto continuamente.
 
 ### Scritture atomiche — resistente ai crash
-Ogni ingest segue un pattern `.tmp → staging LanceDB → promozione atomica`. Un crash lascia il sistema in uno stato rilevabile (`in-progress` in `wiki-session.md`). L'agente si recupera alla sessione successiva senza perdita di dati, senza corruzione silenziosa.
+Ogni ingest segue un pattern `.tmp → staging Qdrant → promozione atomica`. Un crash lascia il sistema in uno stato rilevabile (`in-progress` in `wiki-session.md`). L'agente si recupera alla sessione successiva senza perdita di dati, senza corruzione silenziosa.
 
 ### Iniezione di contesto pre-prompt
 `wiki_context.py` esegue una ricerca vettoriale **prima di ogni messaggio dell'utente** e aggiunge un blocco `<wiki-context>` con le pagine più rilevanti. Questo elimina il principale failure mode degli approcci basati su skill — l'agente ottiene contesto solo quando classifica un messaggio come QUERY:
@@ -109,7 +109,7 @@ Quando una risposta a una query integra ≥2 fonti wiki, supera 300 token, e agg
 ### Lint auto-riparante
 `wiki.py lint --full` rileva e ripara:
 - **Link wiki rotti** (`[[pagina]]` senza file corrispondente)
-- **Entry orfane LanceDB** (vettori per file eliminati — rimossi automaticamente)
+- **Entry orfane Qdrant** (vettori per file eliminati — rimossi automaticamente)
 - **Rename** (file spostato → aggiorna path nel DB senza re-embedding tramite `content_hash`)
 - **Duplicati semantici** (cosine similarity > 0.95 tra pagine)
 
@@ -150,7 +150,7 @@ Qualsiasi PDF da qualsiasi sorgente converge in `pdf-inbox/` e viene processato 
                    L'agente struttura in pagine .tmp
                                 │
                                 ▼
-                   wiki.py ingest → wiki/ + LanceDB
+                   wiki.py ingest → wiki/ + Qdrant
 ```
 
 **Come funziona il rilevamento delle modifiche:** hash SHA-256 per file. Stesso hash + `deposited` → salta. Hash diverso → riprocessa. Lo stato `pending` viene scritto prima dell'estrazione — un crash lascia il registro recuperabile.
@@ -204,7 +204,7 @@ Apri `http://localhost:7331`.
 **Funzionalità:**
 - **Grafo force-directed** — nodi dimensionati per grado di connessione, colorati per categoria (entità/concetti/sintesi), etichette su tutti i nodi
 - **Archi espliciti** — riferimenti `[[wiki-link]]` come frecce solide
-- **Archi semantici** — similarità coseno LanceDB ≥ 0.65 come linee tratteggiate
+- **Archi semantici** — similarità coseno Qdrant ≥ 0.65 come linee tratteggiate
 - **Aggiornamenti live** — WebSocket invia `graph_update` ad ogni modifica file; il grafo transiziona senza spostare i nodi
 - **Animazione query hit** — quando `wiki.py query` viene eseguito, i nodi recuperati pulsano oro→rosso per 4 secondi
 - **Pannello pagina** — click su un nodo → markdown renderizzato, link uscenti/entranti, pagine simili con barre di similarità
@@ -250,7 +250,7 @@ Un tab `[Stats]` integrato nel server web mostra lo stato del wiki senza bisogno
 - **4 KPI card** — pagine totali, chunk totali, copertura embedding %, pagine stale
 - **Più interrogate** — top-10 pagine per frequenza di query, aggregate da `.wiki-query-log.jsonl`
 - **Pagine stale** — pagine non modificate da più di `thresholds.staleness_days` giorni (default 90)
-- **Pagine senza embedding** — file presenti su disco ma assenti da LanceDB
+- **Pagine senza embedding** — file presenti su disco ma assenti da Qdrant
 - **Stato lint** — timestamp ultimo run, conteggio errori e warning (da `.wiki-lint-status.json`)
 - **Schedule auto-lint** — prossima esecuzione pianificata se `frontend.lint_interval_hours` è configurato
 
@@ -286,9 +286,9 @@ workspace/
 │   ├── wiki_context.py       ← iniettore contesto pre-prompt (hook)
 │   ├── wiki_pdf_watcher.py   ← scanner inbox PDF (hash detection + pdfplumber)
 │   ├── wiki_embed.py         ← chunking boundary-aware + embedding bge-m3
-│   ├── wiki_lancedb.py       ← operazioni LanceDB (upsert, staging, rename)
+│   ├── wiki_qdrant.py       ← operazioni Qdrant (upsert, staging, rename)
 │   ├── wiki_index.py         ← generazione index.md con budget token
-│   ├── wiki_graph.py         ← costruttore nodi/archi (filesystem + LanceDB, cache 30s)
+│   ├── wiki_graph.py         ← costruttore nodi/archi (filesystem + Qdrant, cache 30s)
 │   └── wiki_server.py        ← server FastAPI: REST, WebSocket, JWT auth, endpoint stats/lint
 ├── frontend/
 │   └── index.html            ← SPA: grafo D3.js + pannello pagina + client WebSocket
@@ -306,7 +306,7 @@ workspace/
 │       ├── concepts/
 │       └── synthesis/
 └── memory/
-    └── lancedb/              ← database vettoriale (escluso da git, ricostruibile)
+    └── qdrant/              ← database vettoriale (escluso da git, ricostruibile)
 ```
 
 **Invariante fondamentale:** L'agente non scrive mai direttamente nel wiki. Tutto passa per `wiki.py`. La skill guida il *quando* e il *perché*; gli script gestiscono il *come*.
@@ -429,8 +429,8 @@ Config minimale:
     "page_chunk_threshold_tokens": 1500,
     "quality_filter_min_score": 6
   },
-  "lancedb": {
-    "path": "memory/lancedb",
+  "qdrant": {
+    "path": "memory/qdrant",
     "embedding_model": "BAAI/bge-m3"
   }
 }
@@ -481,7 +481,7 @@ Ogni comando produce JSON su stdout:
 ## Documentazione
 
 - [`AGENTS.md`](AGENTS.md) — istruzioni installazione per OpenClaw
-- [`DESIGN.md`](DESIGN.md) — architettura completa, workflow, schema LanceDB, risoluzione conflitti
+- [`DESIGN.md`](DESIGN.md) — architettura completa, workflow, schema Qdrant, risoluzione conflitti
 - [`SPEC.md`](SPEC.md) — spec implementativa, tabella stati di errore, dettagli integrazione
 - [`skills/wiki-core.md`](skills/wiki-core.md) — skill da installare nell'agente
 - [`AGENTS_PATCH.md`](AGENTS_PATCH.md) — *(legacy)* istruzioni d'uso — ora iniettate automaticamente dagli script di setup

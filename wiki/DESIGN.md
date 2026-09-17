@@ -1,7 +1,7 @@
 # 🧠 AI Longterm Wiki Memory — Design Document v2
 
 > Based on Andrej Karpathy's pattern (llm-wiki), adapted for Linux CLI, autonomous,
-> with semantic topology via bge-m3 vector embeddings and LanceDB.
+> with semantic topology via bge-m3 vector embeddings and Qdrant.
 > 2026-05-19.
 
 ---
@@ -29,7 +29,7 @@ workspace/
 │   └── .../
 │
 └── memory/
-    └── lancedb/                    ← Excluded from git (rebuildable — see §git)
+    └── qdrant/                    ← Excluded from git (rebuildable — see §git)
 ```
 
 **Note on index.md**: It does not exist as a manually maintained file.
@@ -42,7 +42,7 @@ This eliminates the entire class of "index out of sync" bugs.
 
 | Layer | Description | Nature |
 |-------|-------------|--------|
-| **Vector Memory** (LanceDB) | Automatic semantic retrieval — all layers indexed together | Implicit, rebuildable |
+| **Vector Memory** (Qdrant) | Automatic semantic retrieval — all layers indexed together | Implicit, rebuildable |
 | **wiki-works/\<topic\>/** | Deep domain knowledge: concepts, research, entities per topic | Explicit, permanent |
 | **wiki/** | Distilled cross-domain knowledge: promoted autonomously when relevant across topics | Explicit, permanent |
 | **wiki/identity/** | Agent identity: values, style, learned behavioral patterns (self-reflect only) | Explicit, permanent |
@@ -59,7 +59,7 @@ First session in a new wiki:
 3. Create empty log.md with header:
    # Log — <wiki name>
    <!-- format: ## [YYYY-MM-DD] type | description -->
-4. LanceDB: create wiki_pages table with schema §vectors if it doesn't exist
+4. Qdrant: create wiki_pages table with schema §vectors if it doesn't exist
 5. Run rebuild-index to generate initial index.md (will be empty/minimal)
 6. Log entry: ## [DATE] init | Bootstrap wiki <name>
 ```
@@ -89,7 +89,7 @@ Staging: all writes happen on `.tmp` files before being committed.
 ```
 ATOMIC STAGING:
 a) Write new/updated pages to <path>.tmp
-b) Write new embeddings to LanceDB staging_wiki_pages table
+b) Write new embeddings to Qdrant staging_wiki_pages table
 c) CHECKPOINT: verify integrity (every .tmp readable, every embedding present)
 d) If CHECKPOINT ok:
    - Rename all .tmp → final (atomic per-file operation)
@@ -115,7 +115,7 @@ e) If CHECKPOINT fails:
 
 1. Call `rebuild-index` (if index.md is absent or stale vs filesystem)
 2. Read index.md → identify relevant pages by category
-3. Vector query on LanceDB for non-obvious semantic connections
+3. Vector query on Qdrant for non-obvious semantic connections
 4. Read selected pages → synthesize response with references `[page](path)`
 5. **Evaluate synthesis threshold** (see §synthesis-threshold): if the synthesis exceeds the threshold → save it as a new page via the INGEST workflow (compounding)
 6. No direct writes outside the INGEST workflow — maintains atomicity
@@ -130,7 +130,7 @@ e) If CHECKPOINT fails:
 ```
 FULL LINT CHECKLIST:
 □ DESYNC: rebuild-index → compare with index.md on disk → diff
-□ STALE VECTORS: for each non-raw .md file → SHA256(content) ≠ content_hash in LanceDB?
+□ STALE VECTORS: for each non-raw .md file → SHA256(content) ≠ content_hash in Qdrant?
 □ UNEMBEDDED PAGES: .md files in wiki without entry in wiki_pages
 □ ORPHAN ENTRIES: entries in wiki_pages with path that doesn't exist on filesystem
 □ BROKEN LINKS: grep [[wikilink]] → verify target file exists
@@ -148,7 +148,7 @@ For each problem found, LINT does not just report — it **resolves**:
 |---------|-----------------|
 | Stale vector | Re-embed immediately |
 | Unembedded page | Embed |
-| Orphan LanceDB entry | Delete entry |
+| Orphan Qdrant entry | Delete entry |
 | Broken link | Report in log, propose fix to user |
 | Duplicates (similarity > 0.95) | Propose merge with draft of unified page |
 | Semantic orphans | Add "See also" section with 3 nearest neighbors |
@@ -207,7 +207,7 @@ Threshold: pages > **1500 tokens** are chunked before embedding.
   (respects `##` and `###` headings)
 - Each chunk inherits the parent page's metadata
 
-**LanceDB schema for chunked pages:**
+**Qdrant schema for chunked pages:**
 
 ```
 wiki_pages:
@@ -242,8 +242,8 @@ This implies:
 | Git checkout same content | No | No | No action (hash matches) |
 | Delete the file | — | — | LINT finds orphan entry → deletes it |
 
-**Rename detection**: LINT compares `set(path in LanceDB)` with `set(files on filesystem)`.
-Path only in LanceDB → orphan. Path only on filesystem → new file.
+**Rename detection**: LINT compares `set(path in Qdrant)` with `set(files on filesystem)`.
+Path only in Qdrant → orphan. Path only on filesystem → new file.
 If an orphan and a new file share the same `content_hash` → it's a rename → update path.
 If hashes differ → orphan deleted, new file embedded separately.
 
@@ -396,7 +396,7 @@ Backlinks findable with `grep -rl "page-name" wiki/`.
 ### C. Semantic topology (vectors)
 bge-m3 embeddings (1024-dim), chunk-aware, for every non-raw page.
 
-- **Neighborhood**: query `search(embedding, k=5, filter="chunk_id=0")` on LanceDB
+- **Neighborhood**: query `search(embedding, k=5, filter="chunk_id=0")` on Qdrant
 - **Clusters**: recalculated during full LINT (k-means on all chunk_id=0 vectors)
 - **Bridges**: pages with neighbors in different clusters
 - **Semantic orphans**: pages with no neighbor with similarity > 0.50
@@ -422,11 +422,11 @@ No PNG, no graph view. Only on-demand textual distances.
 | Log | `log.md` append-only | Parseable format |
 | Explicit links | `[[wikilink]]` + `grep` | Backlinks with `grep -rl` |
 | Embedding | bge-m3 (already installed) | 1024-dim, chunk-aware |
-| Vector DB | LanceDB (already installed) | Table `wiki_pages` |
+| Vector DB | Qdrant (already installed) | Table `wiki_pages` |
 | Text search | `grep` | Fallback for links and text |
 | Web search | `web_search` | Autonomous |
 | Page fetch | `web_fetch` | Clean markdown → raw/ |
-| Versioning | `git` | Excludes lancedb/ (§git) |
+| Versioning | `git` | Excludes qdrant/ (§git) |
 
 ---
 
@@ -458,44 +458,44 @@ Defines for each wiki:
 
 - **Active**: receives ingests and queries
 - **Dormant**: untouched, available read-only
-- **Archived**: `wiki-works/.archive/project-name/` — LanceDB entries deleted
-- **Archived**: `wiki-works/.archive/project-name/` — LanceDB entries deleted
+- **Archived**: `wiki-works/.archive/project-name/` — Qdrant entries deleted
+- **Archived**: `wiki-works/.archive/project-name/` — Qdrant entries deleted
 
 **Note (v3):** Promotion from wiki-works/ to wiki/ is autonomous — the agent promotes when knowledge is cross-domain (relevant in ≥2 topics, retrieved in ≥3 queries). wiki/identity/ is updated only via `wiki.py self-reflect`.
 
 ---
 
-## 🗄️ §git — Git / LanceDB Strategy
+## 🗄️ §git — Git / Qdrant Strategy
 
-**LanceDB is excluded from git.**
+**Qdrant is excluded from git.**
 
 ```
 # .gitignore (add):
-memory/lancedb/
+memory/qdrant/
 ```
 
-**Rationale**: LanceDB is entirely rebuildable from the markdown filesystem.
+**Rationale**: Qdrant is entirely rebuildable from the markdown filesystem.
 It contains no information that cannot be derived from the pages. Committing it
 would cause enormous commits, irresolvable binary conflicts, and false security.
 
 **Rebuild procedure**:
 ```
-rebuild-lancedb(wiki_dir):
+rebuild-qdrant(wiki_dir):
   delete wiki_pages table
   for each .md not in raw/ and not in .archive/:
     chunk if > 1500 tokens (§chunking)
     for each chunk: embed with bge-m3, insert into wiki_pages
-  log entry: ## [DATE] sync | LanceDB rebuilt from filesystem
+  log entry: ## [DATE] sync | Qdrant rebuilt from filesystem
 ```
 
-**When to rebuild**: after `git clone`, `git reset --hard`, or if LanceDB is corrupted.
+**When to rebuild**: after `git clone`, `git reset --hard`, or if Qdrant is corrupted.
 Estimated time: ~2 min per 1000 pages on standard hardware.
 
-**Git tracks**: all `.md`, `.schema.md`, `log.md` files. Does not track: `lancedb/`, `*.tmp`.
+**Git tracks**: all `.md`, `.schema.md`, `log.md` files. Does not track: `qdrant/`, `*.tmp`.
 
 ---
 
-## 🔑 §lancedb-schema — Full LanceDB Schema
+## 🔑 §qdrant-schema — Full Qdrant Schema
 
 ```
 Table: wiki_pages
@@ -518,12 +518,12 @@ Index: vector ANN (HNSW)
 
 ## 🚦 Implementation Rules
 
-1. **Do not touch the existing system** (LanceDB memories, daily notes, MEMORY.md)
+1. **Do not touch the existing system** (Qdrant memories, daily notes, MEMORY.md)
 2. The wiki **adds to** memory, it does not replace it
 3. `index.md` is always generated, never written manually
 4. Every write goes through atomic staging — no partial pages on disk
 5. Mini-lint after every ingest — always
-6. LanceDB outside git — always rebuildable
+6. Qdrant outside git — always rebuildable
 7. `raw/` not in vectors — invariant verified by lint
 8. Conflicts resolved (not just reported) per §conflict-resolution
 9. No new dependencies to install

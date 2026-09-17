@@ -115,7 +115,7 @@ def test_ingest_pdf_already_in_inbox_does_not_crash(tmp_workspace, monkeypatch):
     pdf = tmp_workspace / "pdf-inbox" / "test.pdf"
     pdf.write_bytes(b"%PDF-1.4 fake")
 
-    # Mock scan_inbox per non richiedere lancedb/embeddings
+    # Mock scan_inbox per non richiedere qdrant/embeddings
     # scan_inbox è importata localmente dentro cmd_ingest_pdf da wiki_pdf_watcher
     # Ensure the module is loaded before patching (safe pattern)
     import importlib

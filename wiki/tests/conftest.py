@@ -8,7 +8,7 @@ def tmp_workspace(tmp_path):
     (tmp_path / "wiki" / "synthesis").mkdir(parents=True)
     (tmp_path / "wiki-works" / "test").mkdir(parents=True)
     (tmp_path / "wiki-works" / "test" / "raw").mkdir(parents=True)
-    (tmp_path / "memory" / "lancedb").mkdir(parents=True)
+    (tmp_path / "memory" / "qdrant").mkdir(parents=True)
     (tmp_path / "pdf-inbox").mkdir(parents=True)
 
     config = {
@@ -33,9 +33,11 @@ def tmp_workspace(tmp_path):
             "dedup_auto": 0.90,
             "dedup_warn": 0.75,
         },
-        "lancedb": {
-            "path": "memory/lancedb",
-            "embedding_model": "BAAI/bge-m3"
+        "qdrant": {
+            "path": "memory/qdrant",
+            "embedding_model": "BAAI/bge-m3",
+            "reranker_model": "BAAI/bge-reranker-v2-m3",
+            "rerank": False
         }
     }
     (tmp_path / "wiki.config.json").write_text(json.dumps(config, indent=2))

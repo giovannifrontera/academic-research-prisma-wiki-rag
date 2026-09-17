@@ -7,7 +7,7 @@
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-cc785c?style=flat-square&logo=anthropic&logoColor=white)](https://claude.ai/code)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![MCP](https://img.shields.io/badge/MCP-6_servers-1a7f37?style=flat-square)](https://modelcontextprotocol.io)
-[![LanceDB](https://img.shields.io/badge/LanceDB-vectors-f4a261?style=flat-square)](https://lancedb.com)
+[![Qdrant](https://img.shields.io/badge/Qdrant-vectors-f4a261?style=flat-square)](https://qdrant.tech)
 [![PRISMA](https://img.shields.io/badge/PRISMA-2020-8b1a1a?style=flat-square)](https://www.prisma-statement.org)
 [![License](https://img.shields.io/badge/License-AGPL_3.0-blue?style=flat-square)](LICENSE)
 
@@ -19,7 +19,7 @@
 
 > **Extended edition of [`academic-PRISMA-research-workflow`](https://github.com/giovannifrontera/academic-PRISMA-research-workflow) (archived).**
 > Same full research pipeline — PICO formulation → PRISMA review → evidence synthesis → pilot study design → preprint export —
-> extended with a **persistent LanceDB knowledge layer**: evidence extracted from every review is indexed and retrieved
+> extended with a **persistent Qdrant knowledge layer**: evidence extracted from every review is indexed and retrieved
 > automatically in all future sessions. Knowledge compounds across projects instead of resetting each time.
 
 ---

@@ -11,14 +11,14 @@ from pathlib import Path
 
 from wiki import ok, error, acquire_lock, release_lock
 from wiki_embed import embed_file, _load_model
-from wiki_lancedb import (get_db, upsert, promote_staging, rollback_staging,
-                           ensure_table, detect_renames, query_similar,
-                           find_semantic_duplicates)
+from wiki_qdrant import (get_db, upsert, promote_staging, rollback_staging,
+                          ensure_table, detect_renames, query_similar,
+                          find_semantic_duplicates, list_tables, drop_table)
 from wiki_index import rebuild_index, is_stale, EXCLUDED_NAMES
 
 
-def _lancedb_path(workspace: str, cfg: dict) -> str:
-    return os.path.join(workspace, cfg["lancedb"]["path"])
+def _qdrant_path(workspace: str, cfg: dict) -> str:
+    return os.path.join(workspace, cfg["qdrant"]["path"])
 
 
 def _append_log(workspace: str, wiki_subdir: str, entry: str) -> None:
@@ -51,7 +51,7 @@ def _mini_lint(workspace: str, written_paths: list, db) -> str:
 def cmd_ingest(args, cfg):
     workspace = args.workspace
     lock_path = os.path.join(workspace, ".wiki-lock")
-    db = get_db(_lancedb_path(workspace, cfg))
+    db = get_db(_qdrant_path(workspace, cfg))
     thresholds = cfg["thresholds"]
 
     try:
@@ -82,7 +82,7 @@ def cmd_ingest(args, cfg):
                 chunk_size=thresholds["chunk_size_tokens"],
                 overlap=thresholds["chunk_overlap_tokens"],
                 threshold=thresholds["page_chunk_threshold_tokens"],
-                model_name=cfg["lancedb"]["embedding_model"],
+                model_name=cfg["qdrant"]["embedding_model"],
             )
             upsert(db, rel_final, chunks, table_name="staging_wiki_pages")
             final_paths.append((tmp_path, os.path.join(workspace, rel_final.replace("/", os.sep))))
@@ -131,8 +131,8 @@ def cmd_ingest(args, cfg):
 
 def cmd_query(args, cfg):
     from datetime import datetime as _datetime
-    db = get_db(_lancedb_path(args.workspace, cfg))
-    model, _ = _load_model(cfg["lancedb"]["embedding_model"])
+    db = get_db(_qdrant_path(args.workspace, cfg))
+    model, _ = _load_model(cfg["qdrant"]["embedding_model"])
     vector = model.encode(args.q, normalize_embeddings=True).tolist()
 
     results = query_similar(db, vector, k=args.k)
@@ -183,12 +183,12 @@ def _wiki_md_files(workspace: str, exclude_patterns: list = None):
 
 
 def cmd_rebuild(args, cfg):
-    db = get_db(_lancedb_path(args.workspace, cfg))
+    db = get_db(_qdrant_path(args.workspace, cfg))
     thresholds = cfg["thresholds"]
 
-    existing = db.list_tables().tables
+    existing = list_tables(db).tables
     if "wiki_pages" in existing:
-        db.drop_table("wiki_pages")
+        drop_table(db, "wiki_pages")
 
     count = 0
     for md_file in _wiki_md_files(args.workspace, cfg.get("exclude_from_index", [])):
@@ -198,17 +198,17 @@ def cmd_rebuild(args, cfg):
             chunk_size=thresholds["chunk_size_tokens"],
             overlap=thresholds["chunk_overlap_tokens"],
             threshold=thresholds["page_chunk_threshold_tokens"],
-            model_name=cfg["lancedb"]["embedding_model"],
+            model_name=cfg["qdrant"]["embedding_model"],
         )
         upsert(db, rel, chunks)
         count += 1
 
-    _append_log(args.workspace, "wiki", f"rebuild-lancedb | {count} pagine")
+    _append_log(args.workspace, "wiki", f"rebuild-qdrant | {count} pagine")
     ok({"op": "rebuild", "pages_embedded": count})
 
 
 def cmd_lint(args, cfg):
-    db = get_db(_lancedb_path(args.workspace, cfg))
+    db = get_db(_qdrant_path(args.workspace, cfg))
     report = []
 
     if args.full:

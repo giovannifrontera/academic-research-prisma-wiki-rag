@@ -33,7 +33,7 @@ def _read(path: Path) -> str:
 
 
 def test_wiki_core_covers_required_sections():
-    wiki_core_path = REPO_ROOT / "skills" / "wiki-core.md"
+    wiki_core_path = REPO_ROOT / "skills" / "wiki-core" / "SKILL.md"
     assert wiki_core_path.exists(), f"wiki-core.md not found at {wiki_core_path}"
     wiki_core = _read(wiki_core_path)
 
@@ -50,7 +50,7 @@ def test_wiki_core_covers_required_sections():
 
 def test_wiki_core_documents_public_commands():
     """All public wiki commands must appear in wiki-core.md."""
-    wiki_core_path = REPO_ROOT / "skills" / "wiki-core.md"
+    wiki_core_path = REPO_ROOT / "skills" / "wiki-core" / "SKILL.md"
     assert wiki_core_path.exists(), f"wiki-core.md not found at {wiki_core_path}"
     wiki_core = _read(wiki_core_path)
 

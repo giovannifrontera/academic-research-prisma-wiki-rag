@@ -20,8 +20,8 @@ REQUIRED_CONFIG_FIELDS = [
     ("thresholds", "chunk_overlap_tokens"),
     ("thresholds", "page_chunk_threshold_tokens"),
     ("thresholds", "quality_filter_min_score"),
-    ("lancedb", "path"),
-    ("lancedb", "embedding_model"),
+    ("qdrant", "path"),
+    ("qdrant", "embedding_model"),
 ]
 
 

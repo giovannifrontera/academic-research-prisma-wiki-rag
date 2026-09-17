@@ -46,7 +46,7 @@ AI agents forget everything between sessions. Existing memory systems are flat �
 
 ## What it does
 
-AI Longterm Wiki Memory gives your agent a **three-layer brain** it maintains autonomously — all layers indexed together in a single LanceDB vector space:
+AI Longterm Wiki Memory gives your agent a **three-layer brain** it maintains autonomously — all layers indexed together in a single Qdrant vector space:
 
 | Layer | Directory | Contents | Who writes |
 |-------|-----------|----------|------------|
@@ -94,7 +94,7 @@ This project solves that with a **dual-representation architecture**: every page
         │
         ▼
 ┌───────────────────┐     ┌──────────────────────────┐
-│  Markdown file    │     │  LanceDB vector store     │
+│  Markdown file    │     │  Qdrant vector store     │
 │  wiki/concepts/   │◄────►  bge-m3 embeddings        │
 │  rag.md           │     │  (1024-dim, HNSW index)   │
 └───────────────────┘     └──────────────────────────┘
@@ -114,7 +114,7 @@ A query about *"how LLMs handle long context"* retrieves pages about *"positiona
 [bge-m3](https://huggingface.co/BAAI/bge-m3) embeddings — multilingual (100+ languages), 1024-dim, HNSW index. Queries retrieve by meaning. No re-indexing step. The vector DB is the index, maintained continuously.
 
 ### Atomic writes — crash-safe
-Every ingest follows a `.tmp → staging LanceDB → atomic promotion` pattern. A crash leaves the system in a detectable state (`in-progress` in `wiki-session.md`). The agent recovers at the next session with no data loss, no silent corruption.
+Every ingest follows a `.tmp → staging Qdrant → atomic promotion` pattern. A crash leaves the system in a detectable state (`in-progress` in `wiki-session.md`). The agent recovers at the next session with no data loss, no silent corruption.
 
 ### Pre-prompt context injection
 `wiki_context.py` runs a vector search **before every user message** and prepends a `<wiki-context>` block with the most relevant pages. This eliminates the main failure mode of skill-based approaches — the agent getting context only when it classifies a message as QUERY:
@@ -146,7 +146,7 @@ When a query response integrates ≥2 wiki sources, exceeds 300 tokens, and adds
 ### Self-healing lint
 `wiki.py lint --full` detects and repairs:
 - **Broken wiki links** (`[[page]]` with no matching file)
-- **Orphan LanceDB entries** (vectors for deleted files — auto-removed)
+- **Orphan Qdrant entries** (vectors for deleted files — auto-removed)
 - **Renames** (file moved → updates DB path without re-embedding via `content_hash`)
 - **Semantic duplicates** (cosine similarity > 0.95 across pages)
 
@@ -196,7 +196,7 @@ Any PDF from any source converges at `pdf-inbox/` and is processed automatically
                     Agent structures into .tmp pages
                                │
                                ▼
-                    wiki.py ingest → wiki/ + LanceDB
+                    wiki.py ingest → wiki/ + Qdrant
 ```
 
 **How change detection works:** SHA-256 hash per file. Same hash + `deposited` → skip. Different hash → reprocess. Status `pending` written before extraction begins — a crash leaves the registry recoverable.
@@ -249,7 +249,7 @@ Open `http://localhost:7331`.
 **Features:**
 - **Force-directed graph** — nodes sized by degree, colored by category (entities/concepts/synthesis), labels on all nodes
 - **Explicit edges** — `[[wiki-link]]` references rendered as solid arrows
-- **Semantic edges** — LanceDB cosine similarity ≥ 0.65 rendered as dashed lines
+- **Semantic edges** — Qdrant cosine similarity ≥ 0.65 rendered as dashed lines
 - **Live updates** — WebSocket pushes `graph_update` on any file change; graph transitions smoothly without snapping node positions
 - **Query hit animation** — when `wiki.py query` runs, the retrieved nodes pulse gold→red for 4 seconds
 - **Page panel** — click any node → rendered markdown, outgoing/incoming links, similar pages with similarity bars
@@ -301,7 +301,7 @@ A `[Stats]` tab built into the web server shows the health of the wiki at a glan
 - **4 KPI cards** — total pages, total chunks, embedding coverage %, stale pages count
 - **Top queried** — top-10 pages by query frequency, aggregated from `.wiki-query-log.jsonl`
 - **Stale pages** — pages not modified in more than `thresholds.staleness_days` (default 90 days)
-- **Unembedded pages** — files present on disk but missing from LanceDB
+- **Unembedded pages** — files present on disk but missing from Qdrant
 - **Lint status** — last run timestamp, error count, warning count (from `.wiki-lint-status.json`)
 - **Auto-lint schedule** — next scheduled run if `frontend.lint_interval_hours` is configured
 
@@ -338,9 +338,9 @@ workspace/
 │   ├── wiki_context.py       ← pre-prompt context injector (hook)
 │   ├── wiki_pdf_watcher.py   ← PDF inbox scanner (hash detection + pdfplumber)
 │   ├── wiki_embed.py         ← boundary-aware chunking + bge-m3 embeddings
-│   ├── wiki_lancedb.py       ← LanceDB ops (upsert, staging, rename detection)
+│   ├── wiki_qdrant.py       ← Qdrant ops (upsert, staging, rename detection)
 │   ├── wiki_index.py         ← token-budget index generation
-│   ├── wiki_graph.py         ← node/edge builder (filesystem + LanceDB, 30s cache)
+│   ├── wiki_graph.py         ← node/edge builder (filesystem + Qdrant, 30s cache)
 │   └── wiki_server.py        ← FastAPI server: REST, WebSocket, JWT auth, stats/lint endpoints
 ├── frontend/
 │   └── index.html            ← SPA: D3.js graph + page panel + WebSocket client
@@ -360,7 +360,7 @@ workspace/
 │       ├── concepts/
 │       └── synthesis/
 └── memory/
-    └── lancedb/              ← vector database — all three layers indexed together
+    └── qdrant/              ← vector database — all three layers indexed together
 ```
 
 **Core invariant:** The agent never writes directly to the wiki. Everything goes through `wiki.py`. The skill guides *when* and *why*; the scripts handle *how*.
@@ -484,8 +484,8 @@ Minimal config:
     "page_chunk_threshold_tokens": 1500,
     "quality_filter_min_score": 6
   },
-  "lancedb": {
-    "path": "memory/lancedb",
+  "qdrant": {
+    "path": "memory/qdrant",
     "embedding_model": "BAAI/bge-m3"
   }
 }
@@ -505,9 +505,8 @@ pytest tests/ -v
 
 | Package | Purpose |
 |---------|---------|
-| `lancedb ≥ 0.6.0` | Vector database — stores bge-m3 embeddings with staging table for atomic ingest |
-| `sentence-transformers ≥ 3.0.0` | Loads BAAI/bge-m3 locally — multilingual chunked embedding |
-| `pyarrow ≥ 14.0.0` | Columnar storage for LanceDB batch operations |
+| `qdrant-client ≥ 1.9.0` | Embedded local vector database — stores bge-m3 embeddings with a staging collection for atomic ingest |
+| `sentence-transformers ≥ 3.0.0` | Loads BAAI/bge-m3 (embeddings) and BAAI/bge-reranker-v2-m3 (reranking) locally |
 | `pandas ≥ 2.0.0` | DataFrame ops for lint statistics and rename detection |
 | `pdfplumber ≥ 0.11.0` | PDF text extraction — used by `wiki_pdf_watcher.py` |
 | `pyyaml ≥ 6.0` | Parses `wiki.config.json` and YAML frontmatter |
@@ -592,7 +591,7 @@ Every command outputs JSON to stdout:
 | File | Contents |
 |------|----------|
 | [`AGENTS.md`](AGENTS.md) | Agent install instructions for OpenClaw |
-| [`DESIGN.md`](DESIGN.md) | Full architecture, workflow specs, LanceDB schema, conflict resolution |
+| [`DESIGN.md`](DESIGN.md) | Full architecture, workflow specs, Qdrant schema, conflict resolution |
 | [`SPEC.md`](SPEC.md) | Implementation spec, error states table, integration detail |
 | [`skills/wiki-core.md`](skills/wiki-core.md) | The skill file to install in your agent |
 | [`AGENTS_PATCH.md`](AGENTS_PATCH.md) | *(legacy)* Usage instructions — now auto-injected by setup scripts |

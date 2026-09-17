@@ -17,7 +17,7 @@
 ├── scripts/
 │   ├── wiki.py                ← single entry point
 │   ├── wiki_embed.py          ← chunking + bge-m3 embedding
-│   ├── wiki_lancedb.py        ← LanceDB operations
+│   ├── wiki_qdrant.py        ← Qdrant operations
 │   └── wiki_index.py          ← index.md generation
 ├── wiki/                      ← Level 1: permanent knowledge
 │   ├── .schema.md
@@ -34,7 +34,7 @@
 │       ├── concepts/
 │       └── synthesis/
 └── memory/
-    └── lancedb/               ← excluded from git, rebuildable
+    └── qdrant/               ← excluded from git, rebuildable
 ```
 
 **Core invariant:** Agent never writes directly to the wiki. Everything goes through `wiki.py`. The skill governs the *when* and *why*; the scripts handle the *how*.
@@ -56,9 +56,9 @@ Before any wiki operation, re-read skills/wiki-core.md to verify the protocol.
 
 The second line forces Agent to reload the rules before acting — not only at session start — mitigating instruction weight loss over long context windows.
 
-### LanceDB separate from personal memory
+### Qdrant separate from personal memory
 
-The wiki uses `memory/lancedb/` **physically separate** from Agent's existing hybrid RAG memory. The two systems share neither directories nor tables. Agent is the integration point: during QUERY it interrogates both systems and synthesises the response without explicit distinction between sources.
+The wiki uses `memory/qdrant/` **physically separate** from Agent's existing hybrid RAG memory. The two systems share neither directories nor tables. Agent is the integration point: during QUERY it interrogates both systems and synthesises the response without explicit distinction between sources.
 
 **Synthesis rule:** a wiki page is created only if the threshold criteria from DESIGN.md (§synthesis-threshold) are met using wiki sources. The contribution of personal memory to the response does not count toward the creation of new pages.
 
@@ -208,7 +208,7 @@ Agent notifies the user and does not proceed.
 - Whole-page vs chunked threshold: 1500 tokens (bge-m3 tokenizer)
 - Output: `List[{chunk_id, chunk_text, vector, content_hash, page_hash}]`
 
-### `wiki_lancedb.py`
+### `wiki_qdrant.py`
 
 Tables: `wiki_pages`, `staging_wiki_pages` (identical schema).
 
@@ -227,7 +227,7 @@ Index: `(path, chunk_id) UNIQUE`, `vector ANN (HNSW)`.
 
 **Correct upsert:** `upsert(path, chunks)` deletes *all* chunks with that path, then inserts the new ones. This eliminates orphan chunks when a page changes its chunk count.
 
-**Detect rename:** compare `set(path in LanceDB)` vs `set(file on filesystem)`. If a LanceDB-only path and a filesystem-only path share the same `content_hash` → rename → update path without re-embedding.
+**Detect rename:** compare `set(path in Qdrant)` vs `set(file on filesystem)`. If a Qdrant-only path and a filesystem-only path share the same `content_hash` → rename → update path without re-embedding.
 
 **Atomic operations:**
 - `promote_staging()` → upsert from staging to wiki_pages, clears staging
@@ -271,8 +271,8 @@ Index: `(path, chunk_id) UNIQUE`, `vector ANN (HNSW)`.
     "page_chunk_threshold_tokens": 1500,
     "quality_filter_min_score": 6
   },
-  "lancedb": {
-    "path": "memory/lancedb",
+  "qdrant": {
+    "path": "memory/qdrant",
     "embedding_model": "BAAI/bge-m3"
   }
 }
@@ -287,7 +287,7 @@ Index: `(path, chunk_id) UNIQUE`, `vector ANN (HNSW)`.
 | `.wiki-lock` present | Lock file exists | Agent notifies, does not proceed | Confirm whether to proceed |
 | `.tmp` on disk without lock | Ingest interrupted | `wiki.py` deletes `.tmp`, rolls back staging, logs `ingest-failed` | No |
 | `wiki-session.md` status `in-progress` | Previous session did not complete | Agent notifies before any operation | Confirm recovery or reset |
-| LanceDB missing or corrupt | DB open error | Proposes `wiki.py rebuild` | Confirm (destructive operation) |
+| Qdrant missing or corrupt | DB open error | Proposes `wiki.py rebuild` | Confirm (destructive operation) |
 | Config missing or malformed | Validation error | Agent notifies with specific field | Fix config |
 | `staging_wiki_pages` non-empty at startup | Residual staging | `wiki.py` clears silently, log entry | No |
 | Mini-lint failed | `mini_lint: failed` in JSON | Agent notifies, `wiki-session.md` → `needs-repair` | Run `wiki.py lint` |
@@ -304,7 +304,7 @@ Add to the existing types in `log.md`:
 
 | Type | When |
 |------|------|
-| `rebuild-lancedb` | After `wiki.py rebuild` |
+| `rebuild-qdrant` | After `wiki.py rebuild` |
 | `promote` | Page merge from wiki-works → wiki/ |
 | `rename` | Rename detected during LINT |
 | `session-repair` | Recovery from `in-progress` state |
@@ -318,9 +318,9 @@ This spec **extends** DESIGN.md v2, it does not replace it. The sections of DESI
 Specific corrections to DESIGN.md v2 incorporated in this spec:
 - §chunking: "token" = bge-m3 tokenizer (not character approximation)
 - §index-generation: "stale" defined with mtime comparison
-- §lancedb-schema: upsert operates on all chunks of the path, not only chunk_id=0
+- §qdrant-schema: upsert operates on all chunks of the path, not only chunk_id=0
 - §mini-lint: added `status` field in wiki-session.md for crash detection
-- Log: added types `rebuild-lancedb`, `promote`, `rename`, `session-repair`
+- Log: added types `rebuild-qdrant`, `promote`, `rename`, `session-repair`
 - Level 3 conflict: the partial block occurs by holding the page in staging (not promoted) until the user responds
 
 ---

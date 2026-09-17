@@ -27,9 +27,11 @@
     "dedup_warn": 0.75
   },
 
-  "lancedb": {
-    "path": "memory/lancedb",
-    "embedding_model": "BAAI/bge-m3"
+  "qdrant": {
+    "path": "memory/qdrant",
+    "embedding_model": "BAAI/bge-m3",
+    "reranker_model": "BAAI/bge-reranker-v2-m3",
+    "rerank": true
   },
 
   "exclude_from_index": []

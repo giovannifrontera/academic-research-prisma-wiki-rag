@@ -1,4 +1,4 @@
-"""Graph builder — read-only. Builds nodes + edges from filesystem and LanceDB."""
+"""Graph builder — read-only. Builds nodes + edges from filesystem and Qdrant."""
 
 import re
 import time
@@ -13,14 +13,14 @@ _EXCLUDED_FILES = {"index.md", "log.md"}
 _EXCLUDED_DIRS = {"raw", ".archive"}
 
 try:
-    from wiki_lancedb import (
-        get_db as _lancedb_get_db,
-        ensure_table as _lancedb_ensure_table,
-        query_similar as _lancedb_query_similar,
+    from wiki_qdrant import (
+        get_db as _qdrant_get_db,
+        ensure_table as _qdrant_ensure_table,
+        query_similar as _qdrant_query_similar,
     )
-    _LANCEDB_AVAILABLE = True
+    _QDRANT_AVAILABLE = True
 except ImportError:
-    _LANCEDB_AVAILABLE = False
+    _QDRANT_AVAILABLE = False
 
 
 def mark_dirty() -> None:
@@ -149,12 +149,12 @@ def _explicit_edges(file_texts: list[tuple[Path, str]], node_ids: set[str], work
 
 def _semantic_edges(workspace: str, cfg: dict, files: list[Path], node_ids: set[str]) -> list[dict]:
     import numpy as np
-    if not _LANCEDB_AVAILABLE:
+    if not _QDRANT_AVAILABLE:
         return []
 
-    db_path = str(Path(workspace) / cfg["lancedb"]["path"])
-    db = _lancedb_get_db(db_path)
-    table = _lancedb_ensure_table(db)
+    db_path = str(Path(workspace) / cfg["qdrant"]["path"])
+    db = _qdrant_get_db(db_path)
+    table = _qdrant_ensure_table(db)
     df = table.to_pandas()
     if df.empty:
         return []
@@ -172,7 +172,7 @@ def _semantic_edges(workspace: str, cfg: dict, files: list[Path], node_ids: set[
         vecs = np.stack(page_rows["vector"].values)
         avg_vec = vecs.mean(axis=0).tolist()
 
-        results = _lancedb_query_similar(db, avg_vec, k=6)
+        results = _qdrant_query_similar(db, avg_vec, k=6)
         for r in results:
             target_path = r.get("path", "")
             target_nid = target_path.replace("\\", "/").removesuffix(".md")

@@ -148,7 +148,7 @@ def test_api_stats_top_queried(server_client, tmp_workspace):
 
 def test_api_stats_unembedded(server_client, tmp_workspace, monkeypatch):
     import pandas as pd
-    import wiki_lancedb
+    import wiki_qdrant
 
     (tmp_workspace / "wiki" / "concepts" / "embedding.md").write_text(
         "---\ntitle: Embedding\n---\n\nContent.", encoding="utf-8"
@@ -159,8 +159,8 @@ def test_api_stats_unembedded(server_client, tmp_workspace, monkeypatch):
             # Solo rag.md e' embedded
             return pd.DataFrame({"path": ["wiki/concepts/rag.md"]})
 
-    monkeypatch.setattr(wiki_lancedb, "get_db", lambda path: object())
-    monkeypatch.setattr(wiki_lancedb, "ensure_table",
+    monkeypatch.setattr(wiki_qdrant, "get_db", lambda path: object())
+    monkeypatch.setattr(wiki_qdrant, "ensure_table",
                         lambda *args, **kwargs: FakeTable())
 
     resp = server_client.get("/api/stats")

@@ -10,7 +10,7 @@ from wiki import load_config, ConfigError, acquire_lock, release_lock
 
 def test_load_config_ok(tmp_workspace):
     cfg = load_config(str(tmp_workspace / "wiki.config.json"))
-    assert cfg["lancedb"]["embedding_model"] == "BAAI/bge-m3"
+    assert cfg["qdrant"]["embedding_model"] == "BAAI/bge-m3"
     assert "thresholds" in cfg
 
 def test_load_config_missing_field(tmp_workspace):

@@ -66,7 +66,7 @@ def test_lock_released_after_error(tmp_workspace):
 
 
 def test_rebuild_and_query(tmp_workspace):
-    """Rebuild LanceDB da filesystem, poi query."""
+    """Rebuild Qdrant da filesystem, poi query."""
     page = tmp_workspace / "wiki" / "concepts" / "bollinger.md"
     page.write_text("# Bande di Bollinger\nBande di volatilità attorno a una media mobile.", encoding="utf-8")
     rebuild_result = run_wiki(tmp_workspace, "rebuild")
