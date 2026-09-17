@@ -23,7 +23,7 @@ description: Use when starting a new academic research project, switching betwee
 ```
 
 **wiki-query** e **wiki-ingest** richiedono `wiki_workspace` configurato (Fase 0.8 di `prisma-review`).
-Vedi `skills/wiki-core.md` per i comandi. I due step wiki sono opzionali ma abilitano la memoria cross-sessione.
+Vedi `skills/wiki-core/SKILL.md` per i comandi. I due step wiki sono opzionali ma abilitano la memoria cross-sessione.
 
 Ogni skill è invocata tramite il tool **`Skill`** di Claude Code (es. `Skill("prisma-review")`).
 

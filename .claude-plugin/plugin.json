@@ -1,0 +1,40 @@
+{
+  "name": "academic-research-prisma-wiki-rag",
+  "displayName": "Academic PRISMA Research Workflow",
+  "version": "1.0.0",
+  "description": "AI-powered systematic review, pilot study design, and preprint publication — with persistent knowledge memory",
+  "author": { "name": "Giovanni Frontera" },
+  "repository": "https://github.com/giovannifrontera/academic-research-prisma-wiki-rag",
+  "license": "AGPL-3.0",
+  "keywords": ["prisma", "systematic-review", "academic-research", "rag"],
+  "defaultEnabled": false,
+  "skills": "./skills/",
+  "mcpServers": {
+    "eric": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/eric/server.py"]
+    },
+    "openaire": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/openaire/server.py"]
+    },
+    "core": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/core/server.py"],
+      "env": { "CORE_API_KEY": "${CORE_API_KEY:-}" }
+    },
+    "doaj": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/doaj/server.py"]
+    },
+    "zenodo": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/zenodo/server.py"]
+    },
+    "semantic-scholar": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/semantic-scholar/server.py"],
+      "env": { "SEMANTIC_SCHOLAR_API_KEY": "${SEMANTIC_SCHOLAR_API_KEY:-}" }
+    }
+  }
+}

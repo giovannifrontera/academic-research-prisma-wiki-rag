@@ -5,8 +5,6 @@ description: Long-term research memory for Claude Code. Persists academic knowle
 
 # Wiki Core — Research Memory
 
-> **Nota:** Accedi con `Read skills/wiki-core.md`. Non usare il tool `Skill` — wiki-core è un documento di riferimento, non una skill invocabile.
->
 > I comandi usano il path relativo `wiki/scripts/wiki.py` dalla radice del repo.
 > Su Linux/macOS sostituisci `py` con `python3`.
 

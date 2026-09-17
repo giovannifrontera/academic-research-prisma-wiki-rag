@@ -235,15 +235,16 @@ synthesis.md → [Pandoc 3.x] → PDF (LaTeX engine: xelatex)
 
 ## 🚀 Quick Start
 
-### 1. Install skills
+### 1. Install the plugin
 
-```bash
-git clone https://github.com/giovannifrontera/academic-research-prisma-wiki-rag
-cd academic-research-prisma-wiki-rag
-
-cp -r skills/* ~/.claude/skills/          # Linux/macOS
-Copy-Item -Recurse skills\* $env:USERPROFILE\.claude\skills\  # Windows
 ```
+/plugin marketplace add giovannifrontera/academic-research-prisma-wiki-rag
+```
+
+For local testing without a marketplace, clone the repo and run Claude Code
+with `claude --plugin-dir .` from inside it. Skills and the six MCP servers
+(ERIC, OpenAIRE, CORE, DOAJ, Zenodo, Semantic Scholar) are all declared in
+`.claude-plugin/plugin.json` — no manual `claude mcp add` needed.
 
 ### 2. Install wiki dependencies
 
@@ -251,18 +252,12 @@ Copy-Item -Recurse skills\* $env:USERPROFILE\.claude\skills\  # Windows
 pip install -r wiki/requirements.txt
 ```
 
-### 3. Configure MCP servers
+### 3. Set optional API keys
 
-```bash
-claude mcp add eric python mcp-servers/eric/server.py
-claude mcp add openaire python mcp-servers/openaire/server.py
-claude mcp add core python mcp-servers/core/server.py
-claude mcp add doaj python mcp-servers/doaj/server.py
-claude mcp add zenodo python mcp-servers/zenodo/server.py
-claude mcp add semantic-scholar python mcp-servers/semantic-scholar/server.py
-```
-
-See `docs/mcp-setup.md` for full configuration including API keys.
+`CORE_API_KEY` (required for usable CORE rate limits) and
+`SEMANTIC_SCHOLAR_API_KEY` (optional, raises Semantic Scholar rate limits)
+are read from the environment — export them before starting Claude Code.
+See `docs/mcp-setup.md` for details.
 
 ### 4. Start a review
 

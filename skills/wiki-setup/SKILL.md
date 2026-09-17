@@ -75,4 +75,4 @@ Quando avvii `prisma-review`, inserisci il path del workspace quando richiesto i
 
 ---
 
-Setup completato. Consulta `skills/wiki-core.md` per i comandi di utilizzo.
+Setup completato. Consulta `skills/wiki-core/SKILL.md` per i comandi di utilizzo.
