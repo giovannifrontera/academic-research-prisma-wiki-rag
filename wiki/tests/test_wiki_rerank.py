@@ -1,4 +1,3 @@
-import asyncio
 import sys
 from pathlib import Path
 
@@ -6,14 +5,6 @@ import numpy as np
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
-
-
-@pytest.fixture(autouse=True)
-def inline_executor(monkeypatch):
-    async def run(_, __, func, *args):
-        return func(*args)
-
-    monkeypatch.setattr(asyncio.BaseEventLoop, "run_in_executor", run)
 
 
 def test_rerank_orders_scores_without_changing_candidates(monkeypatch):
@@ -29,47 +20,29 @@ def test_rerank_orders_scores_without_changing_candidates(monkeypatch):
     assert wiki_rerank.rerank("query", []) == []
 
 
-@pytest.mark.parametrize("fails", [False, True])
-def test_context_reranks_full_chunks_and_logs_failure(tmp_workspace, monkeypatch, caplog, fails):
+@pytest.mark.parametrize("enabled,fails,expected", [(True, False, "relevant.md"), (True, True, "first.md"), (False, False, "first.md")])
+def test_cli_ranks_full_chunks_and_honors_config(tmp_workspace, monkeypatch, capsys, enabled, fails, expected):
     import json
+    import wiki_workflows
     import wiki_rerank
-    import wiki_server
-    from starlette.requests import Request
     from types import SimpleNamespace
 
     cfg = json.loads((tmp_workspace / "wiki.config.json").read_text())
-    cfg["qdrant"]["rerank"] = True
-    wiki_server.configure(str(tmp_workspace), cfg, no_auth=True)
-    monkeypatch.setattr(wiki_server, "_embed_model", SimpleNamespace(
-        encode=lambda *a, **kw: np.zeros(1024)))
-    monkeypatch.setattr(wiki_server._wiki_qdrant, "get_db", lambda path: object())
-    monkeypatch.setattr(wiki_server._wiki_qdrant, "query_similar", lambda *a, **kw: [
-        {"path": "unrelated.md", "chunk_text": "a" * 100, "_distance": 0.1},
-        {"path": "relevant.md", "chunk_text": "b" * 100 + " answer", "_distance": 0.2},
+    cfg["qdrant"]["rerank"] = enabled
+    cfg["exclude_from_index"] = ["private/*"]
+    monkeypatch.setattr(wiki_workflows, "get_db", lambda *_: SimpleNamespace(close=lambda: None))
+    monkeypatch.setattr(wiki_workflows, "_load_model", lambda *_: (SimpleNamespace(encode=lambda *a, **kw: np.zeros(1024)), None))
+    monkeypatch.setattr(wiki_workflows, "query_similar", lambda *a, **kw: [
+        {"path": "private/secret.md", "chunk_id": 0, "chunk_text": "secret", "_distance": 0.0},
+        {"path": "first.md", "chunk_id": 0, "chunk_text": "a" * 300, "_distance": 0.1},
+        {"path": "relevant.md", "chunk_id": 0, "chunk_text": "b" * 300 + " answer", "_distance": 0.2},
     ])
-
     def predict(pairs):
         if fails:
-            raise RuntimeError("model unavailable")
+            raise RuntimeError("offline")
         return np.array([float("answer" in text) for _, text in pairs])
-
-    monkeypatch.setattr(wiki_rerank, "_load_reranker", lambda name: SimpleNamespace(predict=predict))
-    request = Request({"type": "http", "client": ("127.0.0.1", 12345)})
-    response = asyncio.run(wiki_server.api_context(request, q="query", k=1, max_chars=20))
-    assert response.status_code == 200
-    body = response.body.decode()
-    assert ("unrelated.md" if fails else "relevant.md") in body
-    assert "b" * 21 not in body
-    if fails:
-        assert "model unavailable" in caplog.text
-
-
-def test_server_reuses_embedding_model(monkeypatch):
-    import wiki_embed
-    import wiki_server
-    from types import SimpleNamespace
-
-    expected = SimpleNamespace(device="cuda:0")
-    monkeypatch.setattr(wiki_embed, "_load_model", lambda name: (expected, None))
-    monkeypatch.setattr(wiki_server, "_embed_model", None)
-    assert asyncio.run(wiki_server._get_embed_model()) is expected
+    monkeypatch.setattr(wiki_rerank, "_load_reranker", lambda *_: SimpleNamespace(predict=predict))
+    wiki_workflows.cmd_query(SimpleNamespace(workspace=str(tmp_workspace), q="question", k=1), cfg)
+    result = json.loads(capsys.readouterr().out)
+    assert [r["path"] for r in result["results"]] == [expected]
+    assert len(result["results"][0]["excerpt"]) <= 200

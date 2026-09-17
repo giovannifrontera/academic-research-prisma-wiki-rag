@@ -225,7 +225,7 @@ wiki.py scan-inbox --workspace <path>
 A read-only web frontend for exploring the wiki in a browser — without touching any workflow.
 
 ```
-py scripts/wiki.py serve --workspace /path/to/workspace [--port 7331] [--no-auth]
+python scripts/wiki.py serve --workspace /path/to/workspace [--port 7331] [--no-auth]
 ```
 
 Open `http://localhost:7331`.
@@ -268,7 +268,7 @@ Open `http://localhost:7331`.
 
 **Public exposure with ngrok:**
 ```bash
-py scripts/wiki.py serve --workspace . --host 0.0.0.0
+python scripts/wiki.py serve --workspace . --host 0.0.0.0
 ngrok http 7331
 ```
 
@@ -496,7 +496,7 @@ Minimal config:
 ### Initialize and test
 
 ```bash
-py scripts/wiki.py rebuild --workspace my-workspace/
+python scripts/wiki.py rebuild --workspace my-workspace/
 pytest tests/ -v
 # Expected: 124 passed
 ```

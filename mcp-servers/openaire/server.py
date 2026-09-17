@@ -7,6 +7,7 @@ No API key required.
 """
 
 import json
+from typing import Literal
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -133,6 +134,7 @@ def openaire_search(
     open_access: bool = None,
     rows: int = 10,
     page: int = 1,
+    output_format: Literal["text", "json"] = "text",
 ) -> str:
     """
     Search OpenAIRE for open access publications (European + Italian repositories).
@@ -146,7 +148,10 @@ def openaire_search(
         open_access: True = OA only, False = non-OA only, None = all
         rows: Results per page (default 10, max 100)
         page: Page number (default 1)
+        output_format: text preview or json envelope with complete normalized records and total.
     """
+    if output_format not in ("text", "json"):
+        raise ValueError("output_format must be 'text' or 'json'")
     try:
         params = {"keywords": query, "format": "json", "page": page, "size": rows}
         if country:
@@ -159,7 +164,13 @@ def openaire_search(
             params["OA"] = "true"
         elif open_access is False:
             params["OA"] = "false"
-        return _format(_request(params), query)
+        data = _request(params)
+        if output_format == "json":
+            raw = _get(data, "response", "results", "result") or []
+            if isinstance(raw, dict):
+                raw = [raw]
+            return json.dumps({"records": [_parse(r) for r in raw], "total": int(_get(data, "response", "header", "total", "$") or 0), "page": page, "size": rows}, ensure_ascii=False)
+        return _format(data, query)
     except RuntimeError as e:
         return f"Error: {e}"
     except Exception as e:

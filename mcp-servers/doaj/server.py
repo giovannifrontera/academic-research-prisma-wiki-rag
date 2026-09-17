@@ -9,6 +9,7 @@ No API key required.
 """
 
 import json
+from typing import Literal
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -84,6 +85,7 @@ def doaj_search_articles(
     country_publisher: str = None,
     rows: int = 10,
     page: int = 1,
+    output_format: Literal["text", "json"] = "text",
 ) -> str:
     """
     Search DOAJ for peer-reviewed open access journal articles.
@@ -97,7 +99,10 @@ def doaj_search_articles(
         country_publisher: ISO country code for journal publisher (e.g. "IT" for Italy)
         rows: Results per page (default 10, max 100)
         page: Page number (default 1)
+        output_format: text preview or json envelope with complete records and total.
     """
+    if output_format not in ("text", "json"):
+        raise ValueError("output_format must be 'text' or 'json'")
     try:
         q_parts = [query]
         if year_from and year_to:
@@ -114,6 +119,8 @@ def doaj_search_articles(
         data = _get("search/articles", params)
         results = data.get("results", [])
         total = data.get("total", 0)
+        if output_format == "json":
+            return json.dumps({"records": results, "total": total, "page": data.get("page", page), "pageSize": data.get("pageSize", rows)}, ensure_ascii=False)
         return _format_articles(results, query, total)
     except RuntimeError as e:
         return f"Error: {e}"

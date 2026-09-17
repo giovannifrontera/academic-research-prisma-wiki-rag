@@ -7,6 +7,7 @@ Optional API key: https://www.semanticscholar.org/product/api
 """
 
 import json
+from typing import Literal
 import sys
 import urllib.request
 import urllib.parse
@@ -95,6 +96,8 @@ def semantic_scholar_search(
     year_to: int = None,
     fields_of_study: str = None,
     limit: int = 10,
+    offset: int = 0,
+    output_format: Literal["text", "json"] = "text",
 ) -> str:
     """
     Search Semantic Scholar's academic graph for papers.
@@ -106,7 +109,11 @@ def semantic_scholar_search(
         year_to: End year (e.g. 2025)
         fields_of_study: Comma-separated field(s), e.g. "Education,Computer Science"
         limit: Number of results (default 10, max 100)
+        offset: Pagination offset (default 0); use the JSON response's next value.
+        output_format: text preview or json envelope with complete records and total.
     """
+    if output_format not in ("text", "json"):
+        raise ValueError("output_format must be 'text' or 'json'")
     try:
         year_range = None
         if year_from or year_to:
@@ -116,11 +123,14 @@ def semantic_scholar_search(
             "year": year_range,
             "fieldsOfStudy": fields_of_study,
             "limit": limit,
+            "offset": offset,
             "fields": FIELDS,
         }
         data = _get("paper/search", params)
         results = data.get("data", [])
         total = data.get("total", 0)
+        if output_format == "json":
+            return json.dumps({"records": results, "total": total, "offset": data.get("offset", offset), "next": data.get("next")}, ensure_ascii=False)
         return _format_results(results, query, total)
     except RuntimeError as e:
         return f"Error: {e}"
@@ -129,7 +139,7 @@ def semantic_scholar_search(
 
 
 @mcp.tool()
-def semantic_scholar_get_paper(paper_id: str) -> str:
+def semantic_scholar_get_paper(paper_id: str, output_format: Literal["text", "json"] = "text") -> str:
     """
     Retrieve full metadata for a specific paper by its Semantic Scholar ID,
     DOI, or arXiv ID.
@@ -138,10 +148,15 @@ def semantic_scholar_get_paper(paper_id: str) -> str:
     Args:
         paper_id: Semantic Scholar paperId, or prefixed external ID
             (e.g. "DOI:10.1145/...", "arXiv:2106.15928")
+        output_format: text preview or json envelope with complete records and total.
     """
+    if output_format not in ("text", "json"):
+        raise ValueError("output_format must be 'text' or 'json'")
     try:
         safe_id = urllib.parse.quote(str(paper_id), safe=":")
         data = _get(f"paper/{safe_id}", {"fields": FIELDS})
+        if output_format == "json":
+            return json.dumps({"records": [data], "total": 1}, ensure_ascii=False)
         return _format_paper(data)
     except RuntimeError as e:
         return f"Error: {e}"

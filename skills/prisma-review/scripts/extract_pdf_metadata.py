@@ -4,7 +4,7 @@ Estrae metadati da PDF trovati manualmente e salva raw_pdf_manual.json
 nel formato normalizzato usato dallo script di screening (Fase 2).
 
 Uso:
-    py extract_pdf_metadata.py <cartella_pdf> [--output raw_pdf_manual.json]
+    python extract_pdf_metadata.py <cartella_pdf> [--output raw_pdf_manual.json]
 
 Output: lista JSON con campi title, doi, year, abstract, authors, source_db, file
 """

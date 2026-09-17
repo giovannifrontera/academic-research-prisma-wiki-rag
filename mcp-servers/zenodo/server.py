@@ -8,6 +8,7 @@ No API key required for public records.
 """
 
 import json
+from typing import Literal
 import re
 import urllib.request
 import urllib.parse
@@ -98,6 +99,7 @@ def zenodo_search(
     community: str = None,
     rows: int = 10,
     page: int = 1,
+    output_format: Literal["text", "json"] = "text",
 ) -> str:
     """
     Search Zenodo for open research outputs (preprints, articles, datasets, software).
@@ -113,7 +115,10 @@ def zenodo_search(
         community: Zenodo community ID to search within (e.g. "eu" for EU projects)
         rows: Results per page (default 10, max 100)
         page: Page number (default 1)
+        output_format: text preview or json envelope with complete records and total.
     """
+    if output_format not in ("text", "json"):
+        raise ValueError("output_format must be 'text' or 'json'")
     try:
         q = query
         if year_from and year_to:
@@ -131,6 +136,13 @@ def zenodo_search(
         data = _get(params)
         hits = data.get("hits", {}).get("hits", [])
         total = _parse_total(data)
+        if output_format == "json":
+            raw_total = data.get("hits", {}).get("total", 0)
+            return json.dumps({
+                "records": hits, "total": total, "page": page, "size": rows,
+                "links": data.get("links", {}),
+                "total_relation": raw_total.get("relation", "eq") if isinstance(raw_total, dict) else "eq",
+            }, ensure_ascii=False)
         return _format(hits, query, total)
     except RuntimeError as e:
         return f"Error: {e}"
@@ -182,7 +194,7 @@ def zenodo_count(
 
 
 @mcp.tool()
-def zenodo_get(record_id: str) -> str:
+def zenodo_get(record_id: str, output_format: Literal["text", "json"] = "text") -> str:
     """
     Retrieve full metadata for a specific Zenodo record.
     Use to get download links, license, and full author affiliations
@@ -190,7 +202,10 @@ def zenodo_get(record_id: str) -> str:
 
     Args:
         record_id: Zenodo record ID (numeric, from zenodo_search results)
+        output_format: text details or json envelope with complete records and total.
     """
+    if output_format not in ("text", "json"):
+        raise ValueError("output_format must be 'text' or 'json'")
     try:
         safe_id = urllib.parse.quote(str(record_id), safe="")
         url = f"{BASE_URL}/records/{safe_id}"
@@ -205,6 +220,8 @@ def zenodo_get(record_id: str) -> str:
         except TimeoutError:
             raise RuntimeError(f"Zenodo API timeout after {DEFAULT_TIMEOUT}s") from None
 
+        if output_format == "json":
+            return json.dumps({"records": [r], "total": 1}, ensure_ascii=False)
         rec = _parse(r)
         files = r.get("files", []) or []
         file_links = [f.get("links", {}).get("self", "") for f in files if isinstance(f, dict)]

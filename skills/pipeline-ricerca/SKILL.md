@@ -5,6 +5,9 @@ description: Use when starting a new academic research project, switching betwee
 
 # Pipeline di Ricerca Accademica
 
+**Percorsi e interprete:** risolvi `<PLUGIN_ROOT>` dalla posizione di questa skill installata (`skills/<nome>/SKILL.md`, due directory sopra). Sostituisci i segnaposto con path assoluti reali e usa `python` dal venv attivo su Windows/Linux. I dati restano nella cartella review; vedi [setup e modelli](../../docs/models-and-setup.md).
+
+
 ## Flusso completo
 
 ```
@@ -13,7 +16,7 @@ description: Use when starting a new academic research project, switching betwee
 [prisma-review]          → eligibility_prisma.json + prisma_synthesis.md
                             + raw_pdf_manual.json (Stream 2: PDF manuali, PRISMA 2020)
        ↓
-[hybrid-rag]             → rag_db/  (index-prisma + index-pdf pdf_manuali/)
+[hybrid-rag]             → rag_db/  (index-prisma + index-pdf pdf_inclusi/)
        ↓
 [wiki-ingest]            ← Export post-review: entity pages (paper inclusi) + synthesis page
        ↓
@@ -42,7 +45,7 @@ Ogni skill è invocata tramite il tool **`Skill`** di Claude Code (es. `Skill("p
 | `prisma_state.json` | Stato operativo + lista paper inclusi + `wiki_workspace` | Ripresa di sessione |
 | `prisma_log.md` | Log metodologico ufficiale per il paper | — |
 | `raw_pdf_manual.json` | Metadati PDF trovati manualmente (Stream 2, PRISMA 2020) | `hybrid-rag` index-pdf, Fase 2 dedup |
-| `screening_prisma.json` | Paper dopo deduplicazione cross-stream (con abstract) | `hybrid-rag` (fallback) |
+| `screening_prisma.json` | Paper dopo deduplicazione cross-stream (con abstract) | Solo screening; non indicizzare come evidenza inclusa |
 | `eligibility_prisma.json` / `extraction_table.json` | Paper inclusi con dati estratti completi | `hybrid-rag` (primario), wiki-ingest |
 | `prisma_synthesis.md` | Sintesi tematica + **OUTPUT PER PILOT STUDY** + wiki export | `educational-pilot-design`, wiki-ingest |
 | `prisma_bibliography.md` | Schede bibliografiche annotate | Report finale |
@@ -55,17 +58,17 @@ Ogni skill è invocata tramite il tool **`Skill`** di Claude Code (es. `Skill("p
 
 **Quando:** dopo la Fase 4 di `prisma-review`, per costruire il database RAG per la generazione del report e per il pilot.
 
-**Input richiesti:** `eligibility_prisma.json` (o `extraction_table.json`). Opzionale: `pdf_manuali/` per `index-pdf` (Stream 2).
+**Input richiesti:** `eligibility_prisma.json` (o `extraction_table.json`). Opzionale: `pdf_inclusi/` con soli PDF approvati in eligibility, tracciati nel log con DOI/ID, revisore, data e motivazione. Linee guida e materiali di contesto richiedono un indice separato.
 
 **Comandi minimi:**
 ```bash
-py hybrid_rag.py choose-backend --backend lancedb  # raccomandato; ometti per usare chromadb
-py hybrid_rag.py init
-py hybrid_rag.py index-prisma eligibility_prisma.json
-py hybrid_rag.py status
+python "<PLUGIN_ROOT>/skills/hybrid-rag/hybrid_rag_template.py" choose-backend --backend qdrant
+python "<PLUGIN_ROOT>/skills/hybrid-rag/hybrid_rag_template.py" init
+python "<PLUGIN_ROOT>/skills/hybrid-rag/hybrid_rag_template.py" index-prisma eligibility_prisma.json
+python "<PLUGIN_ROOT>/skills/hybrid-rag/hybrid_rag_template.py" status
 ```
 
-> `choose-model` è opzionale: il default `minilm` va bene per < 30 paper. Per 30-150 paper usa `--model e5-large` prima di `init`.
+> Per BGE usa `choose-model --model bge-m3` prima di `init`; senza scelta esplicita il modello resta MiniLM. Il backend default è Qdrant.
 
 **File prodotti:**
 
@@ -74,7 +77,7 @@ py hybrid_rag.py status
 | `rag_db/` | Database vettoriale locale (LanceDB, ChromaDB o Qdrant) | `prisma-review` Fase 6, `educational-pilot-design` |
 | `rag_db/config.json` | Modello attivo, backend, indicizzazione | Ripresa di sessione |
 
-**Dipendenza:** `hybrid_rag.py` deve esistere nella cartella di lavoro. Se non esiste: leggi `~/.claude/skills/hybrid-rag/hybrid_rag_template.py` e scrivilo con Write tool.
+**Dipendenza:** esegui il template della skill installata direttamente; non occorre copiarlo. Mantieni la directory corrente sulla review per il corretto `rag_db/`. Non usare mai screening non filtrato come fallback.
 
 ---
 

@@ -7,6 +7,8 @@ uso, per coerenza multilingue IT/EN.
 """
 
 import os
+import fnmatch
+import logging
 
 _model = None
 _model_name = None
@@ -46,3 +48,26 @@ def rerank(query: str, candidates: list[dict], top_k: int = None,
         reranked.append(item)
     reranked.sort(key=lambda x: x["_rerank_score"], reverse=True)
     return reranked[:top_k] if top_k else reranked
+
+
+def rank_results(query: str, rows: list[dict], cfg: dict, k: int) -> list[dict]:
+    """Shared CLI/HTTP ranking: full chunks, one result per page, safe fallback."""
+    if k < 1:
+        raise ValueError("k must be positive")
+    seen = {}
+    for row in sorted(rows, key=lambda r: r.get("_distance", 1.0)):
+        path = row["path"]
+        if not row.get("chunk_text") or any(
+            fnmatch.fnmatchcase(path, p) for p in cfg.get("exclude_from_index", [])
+        ):
+            continue
+        seen.setdefault(path, row)
+    candidates = list(seen.values())
+    settings = cfg.get("qdrant", {})
+    if candidates and settings.get("rerank", True):
+        try:
+            return rerank(query, candidates, top_k=k,
+                          model_name=settings.get("reranker_model", DEFAULT_MODEL))
+        except Exception as exc:
+            logging.getLogger(__name__).warning("Reranking failed; using vector ranking: %s", exc)
+    return candidates[:k]

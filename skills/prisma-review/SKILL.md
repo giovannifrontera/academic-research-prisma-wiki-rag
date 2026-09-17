@@ -1,9 +1,12 @@
 ---
 name: prisma-review
-description: Use when conducting a systematic literature review using the PRISMA methodology. Triggers on: systematic review, literature review, PRISMA, database search strategy, inclusion/exclusion criteria, deduplication, screening, evidence synthesis. Available MCP servers: semantic-scholar, arxiv, pubmed, eric, openaire, core, doaj, zenodo.
+description: Use when conducting a systematic literature review using the PRISMA methodology. Triggers on: systematic review, literature review, PRISMA, database search strategy, inclusion/exclusion criteria, deduplication, screening, evidence synthesis. Bundled MCP servers: semantic-scholar, eric, openaire, core, doaj, zenodo. arXiv and PubMed require separately configured external servers.
 ---
 
 # PRISMA Systematic Review
+
+**Percorsi e interprete:** risolvi `<PLUGIN_ROOT>` dalla posizione di questa skill installata (`skills/<nome>/SKILL.md`, due directory sopra). Sostituisci i segnaposto con path assoluti reali e usa `python` dal venv attivo su Windows/Linux. I dati restano nella cartella review; vedi [setup e modelli](../../docs/models-and-setup.md).
+
 
 ## Overview
 
@@ -167,7 +170,7 @@ Creato alla Fase 4, contiene per ogni paper incluso una scheda con annotazione c
        ↓
 [Inclusion]      →  Estrazione dati → eligibility_prisma.json → checkpoint ogni 10
        ↓
-[RAG Build]      →  hybrid_rag.py index-prisma + index-pdf pdf_manuali/
+[RAG Build]      →  hybrid_rag.py index-prisma + index-pdf pdf_inclusi/
        ↓
 [Report]         →  hybrid_rag.py query → scrive sezione per sezione → export wiki
 ```
@@ -224,10 +227,10 @@ Se la domanda è ampia, aiuta l'utente a scomporla in **sub-domande** (es. RQ1, 
 
 Se sì:
 1. Chiedi di creare la cartella `pdf_manuali/` nella cartella di lavoro e inserire i PDF
-2. Leggi il file `skills/prisma-review/scripts/extract_pdf_metadata.py` con il tool **Read** e scrivilo nella cartella di lavoro con il tool **Write**
+2. Risolvi `scripts/extract_pdf_metadata.py` relativamente a questa skill installata; eseguilo direttamente dalla cartella review.
 3. Esegui:
    ```bash
-   py extract_pdf_metadata.py pdf_manuali/
+   python "<PLUGIN_ROOT>/skills/prisma-review/scripts/extract_pdf_metadata.py" "pdf_manuali/"
    ```
 4. Lo script crea `raw_pdf_manual.json` con titolo, DOI, anno, abstract per ogni PDF
 5. Chiedi all'utente di **verificare e integrare** il file generato (autori mancanti, PDF scannerizzati senza testo, abstract non trovati)
@@ -239,13 +242,13 @@ Se sì:
 
 ### 0.8 — Wiki System (OpenClaw)
 
-> ⚠️ **CWD per i comandi wiki:** tutti i comandi `py wiki/scripts/wiki.py` devono essere eseguiti dalla **radice del repo** `academic-research-prisma-wiki-rag/`, non dalla cartella di lavoro della review. Se necessario, usa il path assoluto: `py <path-assoluto-repo>/wiki/scripts/wiki.py ...`
+> **CWD:** i comandi usano il path assoluto dello script nel plugin risolto; funzionano dalla directory review. `--workspace` identifica la directory dati wiki separata.
 
 > "Stai usando il sistema wiki OpenClaw per questa ricerca? Se sì, indica il percorso assoluto della cartella wiki workspace (es. `C:/Users/nome/wiki-data/ricerca` o il path configurato in `wiki.config.json`)"
 
 Se sì:
 - Salva il percorso in `prisma_state.json` come `wiki_workspace`
-- Verifica che il path esista eseguendo: `py wiki/scripts/wiki.py query --workspace [path] --q "test" --k 1`
+- Verifica che il path esista eseguendo: `python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" query --workspace "[path]" --q "test" --k 1`
 - Se funziona, informa: *"Wiki connesso. Lo userò per: (1) cercare conoscenza pre-esistente prima delle query PRISMA, (2) esportare i paper inclusi dopo la Fase 4, (3) esportare la sintesi dopo la Fase 6."*
 - Se non funziona, documenta `wiki_workspace: null` e procedi senza integrazione wiki
 
@@ -274,7 +277,7 @@ Chiedi conferma. Poi aggiorna `prisma_state.json` e `prisma_log.md`.
 Prima di formulare le query per i database, interroga il wiki per surfaceare conoscenza già presente sul tema:
 
 ```bash
-py wiki/scripts/wiki.py query --workspace [wiki_workspace] --q "[domanda di ricerca principale]" --k 5
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" query --workspace "[wiki_workspace]" --q "[domanda di ricerca principale]" --k 5
 ```
 
 Se il wiki restituisce pagine rilevanti (rilevanza > 0.4):
@@ -286,11 +289,11 @@ Se il wiki non ha pagine rilevanti: procedi normalmente, il wiki verrà popolato
 
 ### 1.1 — Query database (Stream 1)
 
-Costruisci le query adattando i parametri. Lancia le ricerche in parallelo.
+Costruisci le query adattando i parametri. Per i sei server inclusi usa `output_format="json"`. arXiv e PubMed sono integrazioni esterne opzionali, non incluse: verifica gli strumenti realmente esposti prima di usarli e registra le fonti non configurate. Il filtro minimo citazioni, se richiesto, va applicato dopo il recupero: Semantic Scholar non espone `min_citation_count`.
 
 | Database | Tool MCP | Parametri chiave |
 |----------|----------|-----------------|
-| `semantic-scholar` | `paper_relevance_search` | `year="AAAA-AAAA"`, `min_citation_count=N`, `fields_of_study=[...]` |
+| `semantic-scholar` | `semantic_scholar_search` | `query`, `year_from`, `year_to`, `fields_of_study` (stringa), `limit`, `output_format="json"` |
 | `arxiv` | `search_papers` | `date_from="AAAA-MM-GG"`, `categories=[...]` — ⚠️ il nome del tool varia per versione; se la call fallisce, verificare il nome esatto con `claude mcp list --verbose` |
 | `pubmed` | `search_pubmed` | `"AAAA:AAAA"[Date - Publication]`, `[MeSH Terms]` |
 | `eric` | `eric_advanced_search` | `query`, `rows` (max 200), `start`, `year_from`, `year_to`, `education_level`, `pub_type`, `language`, `title_only` |
@@ -391,14 +394,9 @@ raw_zenodo.json             ← lista di oggetti dal MCP zenodo
 
 **Perché è critico:** Lo script di deduplicazione in Fase 2 legge questi file. Se non esistono, la Fase 2 non può partire e il corpus andrà perso al termine della sessione.
 
-> ⚠️ **Cosa salvare nei file raw_\*.json:** salva sempre i record **grezzi** restituiti dall'API, non l'output testuale formattato dal tool. In particolare:
-> - **OpenAIRE**: `data['response']['results']['result']` (lista record grezzi)
-> - **CORE**: `data['results']` (lista record grezzi)
-> - **DOAJ**: `data['results']` (lista `bibjson` objects)
-> - **Zenodo**: `data['hits']['hits']` (lista record grezzi)
-> - **ERIC / Semantic Scholar / PubMed / arXiv**: vedi mappatura in Fase 2
->
-> Se salvi l'output testuale del tool invece dei dict, lo script di Fase 2 non troverà i campi attesi e andrà in crash.
+**Contratto macchina:** i tool search inclusi, con `output_format="json"`, restituiscono un envelope JSON `{records: [...], total: ..., ...}`. Decodifica il JSON e salva la lista `records` senza ricostruirla dal Markdown. Conserva totale dichiarato, pagine/offset, query, data e limiti nel log; il totale remoto non equivale ai record effettivamente scaricati. Accumula tutte le pagine recuperate prima di deduplicare.
+
+OpenAIRE restituisce record normalizzati completi (titolo, DOI, anno, abstract, autori e altri campi disponibili); gli altri server conservano i record API grezzi. Per CORE usa i record già estratti in `records`; DOAJ conserva i wrapper contenenti `bibjson`, Zenodo i record con `metadata`. Le integrazioni esterne arXiv/PubMed richiedono un adattatore verificato al loro schema. Non salvare testo formattato come record e non inventare metadati mancanti.
 
 **Come salvare con Python:**
 ```python
@@ -642,27 +640,21 @@ Il RAG è il meccanismo principale per generare il report finale senza saturare 
 **Usa la skill `hybrid-rag`** tramite il tool `Skill` di Claude Code (sostituisce il vecchio `build_rag_db.py`):
 
 1. Invoca la skill `hybrid-rag`.
-2. Se `hybrid_rag.py` non esiste nella cartella corrente, la skill richiede di usare il tool **Read** su `~/.claude/skills/hybrid-rag/hybrid_rag_template.py` e il tool **Write** per creare `./hybrid_rag.py` — seguire quella procedura.
-3. I comandi da eseguire sono:
-   ```bash
-   py hybrid_rag.py init
-   py hybrid_rag.py index-prisma eligibility_prisma.json
+2. Esegui il template dalla skill installata con path assoluto, dalla directory review.
+3. Indicizza solo `eligibility_prisma.json` dopo conferma umana. Se manca, completa eligibility: **mai usare screening non filtrato come fallback**.
+   ```text
+   python "<PLUGIN_ROOT>/skills/hybrid-rag/hybrid_rag_template.py" choose-backend --backend qdrant
+   python "<PLUGIN_ROOT>/skills/hybrid-rag/hybrid_rag_template.py" choose-model --model bge-m3
+   python "<PLUGIN_ROOT>/skills/hybrid-rag/hybrid_rag_template.py" init
+   python "<PLUGIN_ROOT>/skills/hybrid-rag/hybrid_rag_template.py" index-prisma "eligibility_prisma.json"
    ```
-   `eligibility_prisma.json` (creato in Fase 4) contiene i record completi con abstract — è il file ottimale per il RAG. Se non esiste ancora, usa `screening_prisma.json` come fallback (ha abstracts ma include anche paper esclusi).
-
-   > ⚠️ **Fallback su `screening_prisma.json`:** questo file include i paper non eleggibili (esclusi in Fase 3). Se indicizzato nel RAG, il modello potrebbe recuperarli e citarli nel report finale, violando il guardrail anti-allucinazione della Fase 6. Segnala esplicitamente all'utente che si sta usando il fallback e valuta se filtrare il file prima dell'indicizzazione (rimuovendo i record con `included: false` se presenti).
-
-4. Se esiste `pdf_manuali/` nella cartella di lavoro (Fase 0.7), indicizzala:
-   ```bash
-   py hybrid_rag.py index-pdf pdf_manuali/
+4. Copia in `pdf_inclusi/` solo i PDF degli studi inclusi. Nel log registra nome file, DOI/ID, decisione eligibility, motivazione, revisore umano e data. L inbox `pdf_manuali/` contiene anche candidati esclusi e non va indicizzata in blocco.
+   ```text
+   python "<PLUGIN_ROOT>/skills/hybrid-rag/hybrid_rag_template.py" index-pdf "pdf_inclusi/"
    ```
-   Questo integra il **testo completo** dei PDF nel RAG — più ricco dei soli metadati in `raw_pdf_manual.json`.
+   Conserva linee guida e materiali di contesto in un indice separato; non sono evidenza inclusa. Se esiste un vecchio indice contaminato, ricostruiscilo dal corpus approvato: upsert non rimuove gli esclusi.
 
-   Per ulteriori PDF (linee guida, report istituzionali):
-   > "Hai altri PDF da aggiungere al RAG oltre a quelli in `pdf_manuali/`?"
-   Se sì: `py hybrid_rag.py index-pdf <cartella>`
-
-5. Verifica con: `py hybrid_rag.py status`
+5. Verifica con: `python "<PLUGIN_ROOT>/skills/hybrid-rag/hybrid_rag_template.py" status`
 
 Al termine conferma il numero di documenti indicizzati e chiedi:
 > "Il RAG è pronto con N documenti. Vuoi procedere con la generazione del report finale?"
@@ -683,9 +675,9 @@ Al termine conferma il numero di documenti indicizzati e chiedi:
 Usa `hybrid_rag.py` (generato dalla skill `hybrid-rag` in Fase 5) per interrogare il RAG:
 
 ```bash
-py hybrid_rag.py query "self-regulated learning chatbot secondary school" --n 5
-py hybrid_rag.py query "effect size metacognition AI" --n 5
-py hybrid_rag.py query "limitations future research chatbot education" --n 5
+python "<PLUGIN_ROOT>/skills/hybrid-rag/hybrid_rag_template.py" query "self-regulated learning chatbot secondary school" --n 5
+python "<PLUGIN_ROOT>/skills/hybrid-rag/hybrid_rag_template.py" query "effect size metacognition AI" --n 5
+python "<PLUGIN_ROOT>/skills/hybrid-rag/hybrid_rag_template.py" query "limitations future research chatbot education" --n 5
 ```
 
 I risultati vengono mostrati in Markdown direttamente in conversazione. Usa i chunk recuperati come base per scrivere ogni sezione del report — non citare mai paper non recuperati dal RAG.
@@ -787,7 +779,7 @@ Dopo la generazione del report finale, esporta la conoscenza nel wiki per **pers
 
 ### A — Paper inclusi → Entity pages (esegui dopo Fase 4)
 
-Per ogni paper in `eligibility_prisma.json`, crea un file `.tmp` in `wiki-works/ricerca/entities/`. Template:
+Per ogni paper in `eligibility_prisma.json`, crea un file `<slug>.md.tmp` sotto `wiki_workspace/wiki-works/ricerca/entities/`. Template:
 
 ```markdown
 # [Autore/i Cognome (Anno)] — [Titolo breve]
@@ -814,17 +806,14 @@ Per ogni paper in `eligibility_prisma.json`, crea un file `.tmp` in `wiki-works/
 
 Poi esegui:
 ```bash
-py wiki/scripts/wiki.py ingest \
-  --workspace [wiki_workspace] \
-  --pages [lista file .tmp separati da virgola] \
-  --log "prisma-entities | [nome_progetto]"
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" ingest --workspace "[wiki_workspace]" --pages "[lista path .md.tmp relativi al workspace separati da virgola]" --log "prisma-entities | [nome_progetto]"
 ```
 
 > ⚠️ **Batch processing:** con molti paper, raggruppa in batch da 10 file per evitare argomenti troppo lunghi nella command line.
 
 ### B — Sintesi → Synthesis page (esegui dopo Fase 6)
 
-Crea `wiki_synthesis_[nome_progetto].tmp` da `prisma_synthesis.md`:
+Crea `wiki-works/ricerca/synthesis/<slug>.md.tmp` sotto `wiki_workspace` da `prisma_synthesis.md` (non nella radice della review):
 
 ```markdown
 # Sintesi PRISMA — [Domanda di ricerca principale]
@@ -853,10 +842,7 @@ Crea `wiki_synthesis_[nome_progetto].tmp` da `prisma_synthesis.md`:
 
 Poi esegui:
 ```bash
-py wiki/scripts/wiki.py ingest \
-  --workspace [wiki_workspace] \
-  --pages wiki_synthesis_[nome_progetto].tmp \
-  --log "prisma-synthesis | [nome_progetto]"
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" ingest --workspace "[wiki_workspace]" --pages "wiki-works/ricerca/synthesis/<slug>.md.tmp" --log "prisma-synthesis | [nome_progetto]"
 ```
 
 **Valuta §promotion:** se la sintesi è cross-dominio o citabile in ≥2 contesti diversi, promuovila da `wiki-works/ricerca/` a `wiki/` secondo i criteri del `wiki-core`.
@@ -878,7 +864,7 @@ py wiki/scripts/wiki.py ingest \
 | Non aggiornare i file a ogni fase | Aggiornamento progressivo — non a posteriori |
 | Aggiornare `prisma_synthesis.md` solo alla fine | Aggiornare paper per paper durante la Fase 4 |
 | RAG con solo abstract | Il RAG deve avere documenti ricchi (tutti i campi estratti) |
-| Usare `prisma_state.json` per index-prisma | Ha solo dati minimi (no abstract) — usare `eligibility_prisma.json` (Fase 4) o `screening_prisma.json` come fallback |
+| Usare `prisma_state.json` per index-prisma | Ha solo dati minimi (no abstract) — usare `eligibility_prisma.json` (Fase 4) con i soli studi inclusi e la relativa provenienza umana |
 | Generare il report dalla memoria della sessione | Usare sempre il RAG + i file di persistenza |
 | Affermare risposte univoche non supportate | Dichiarare convergenze, divergenze e gap in modo onesto |
 | Omettere la bibliografia annotata | Ogni paper incluso ha la sua scheda in `prisma_bibliography.md` |
@@ -896,7 +882,7 @@ py wiki/scripts/wiki.py ingest \
 | Non salvare JSON grezzi dopo Fase 1 | Salva immediatamente `raw_*.json` per ogni DB — lo script Fase 2 li richiede |
 | MCP server non risponde durante Fase 1 | Registra 0 risultati, annota in `prisma_log.md`, continua con gli altri DB — non bloccare il workflow |
 | Usare arxiv senza verificare la connessione | Arxiv ha instabilità storica — controlla `claude mcp list` prima; se ✗ Failed, documenta e usa semantic-scholar come fallback (indicizza anche i preprint arxiv) |
-| Citare paper non nel RAG nel report finale | Solo paper recuperati tramite `py hybrid_rag.py query "..."` possono essere citati — mai dalla memoria del modello |
+| Citare paper non nel RAG nel report finale | Solo paper recuperati tramite `python "<PLUGIN_ROOT>/skills/hybrid-rag/hybrid_rag_template.py" query "..."` possono essere citati — mai dalla memoria del modello |
 | Soglia citazioni senza disclaimer recency | Avverti sempre che paper post-2022 sono penalizzati ingiustamente; documenta nella metodologia |
 | Esclusioni Fase 3 senza criterio esplicito | Ogni esclusione deve citare il criterio violato per nome (es. "C3: campione < 20") |
 | Aggiornare `prisma_state.json` solo alla fine Fase 4 | Aggiornare dopo ogni singolo paper — il checkpoint ogni 10 paper garantisce la persistenza |

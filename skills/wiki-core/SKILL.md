@@ -5,8 +5,10 @@ description: Long-term research memory for Claude Code. Persists academic knowle
 
 # Wiki Core — Research Memory
 
-> I comandi usano il path relativo `wiki/scripts/wiki.py` dalla radice del repo.
-> Su Linux/macOS sostituisci `py` con `python3`.
+**Percorsi e interprete:** risolvi `<PLUGIN_ROOT>` dalla posizione di questa skill installata (`skills/<nome>/SKILL.md`, due directory sopra). Sostituisci i segnaposto con path assoluti reali e usa `python` dal venv attivo su Windows/Linux. I dati restano nella cartella review; vedi [setup e modelli](../../docs/models-and-setup.md).
+
+
+> I comandi usano il path assoluto del plugin e `python` del venv attivo su entrambi i sistemi. Non richiedono la radice del repository come directory corrente.
 
 ---
 
@@ -28,22 +30,22 @@ Tutti i comandi ricevono questo path via `--workspace`.
 
 ```bash
 # Interroga la memoria
-py wiki/scripts/wiki.py query --workspace <W> --q "<domanda>" --k 5
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" query --workspace "<W>" --q "<domanda>" --k 5
 
 # Ingest (pages già scritte come .tmp)
-py wiki/scripts/wiki.py ingest --workspace <W> --pages <f1.tmp,f2.tmp,...> --log "<etichetta>"
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" ingest --workspace "<W>" --pages "<f1.tmp,f2.tmp,...>" --log "<etichetta>"
 
 # Ingest PDF (estrae testo — poi segui §ingest per creare le pagine strutturate)
-py wiki/scripts/wiki.py ingest-pdf --workspace <W> --file <percorso-o-url>
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" ingest-pdf --workspace "<W>" --file "<percorso-o-url>"
 
 # Lint (trova duplicati, link rotti)
-py wiki/scripts/wiki.py lint --workspace <W> --full
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" lint --workspace "<W>" --full
 
 # Rebuild indice da zero (dopo import massivo o corruzione)
-py wiki/scripts/wiki.py rebuild --workspace <W>
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" rebuild --workspace "<W>"
 
 # Dashboard web opzionale (http://localhost:7331)
-py wiki/scripts/wiki.py serve --workspace <W> --no-auth
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" serve --workspace "<W>" --no-auth
 ```
 
 `<W>` = path assoluto al wiki workspace (es. `C:/Users/nome/Documents/wiki-data`).
@@ -52,7 +54,7 @@ py wiki/scripts/wiki.py serve --workspace <W> --no-auth
 
 ## §query — Interrogare la memoria
 
-1. Esegui: `py wiki/scripts/wiki.py query --workspace <W> --q "<domanda>" --k 5`
+1. Esegui: `python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" query --workspace "<W>" --q "<domanda>" --k 5`
 2. Leggi le pagine restituite
 3. Sintetizza con riferimenti `[titolo-pagina](path)`
 4. Se la sintesi supera 300 token, aggiunge inferenza non letterale e attinge da ≥2 fonti → salva come nuova pagina via §ingest, poi valuta §promotion
@@ -61,7 +63,9 @@ py wiki/scripts/wiki.py serve --workspace <W> --no-auth
 
 ## §ingest — Salvare conoscenza
 
-**Fase A — Scrivi le pagine come file `.tmp`:**
+**Fase A — Scrivi le pagine come file `.tmp` sotto il workspace dati:**
+
+I path della tabella e quelli di `--pages` sono relativi a `<W>`, non alla directory review. Usa il suffisso `.md.tmp`.
 
 | Tipo pagina | Path |
 |---|---|
@@ -71,10 +75,7 @@ py wiki/scripts/wiki.py serve --workspace <W> --no-auth
 
 **Fase B — Ingest:**
 ```bash
-py wiki/scripts/wiki.py ingest \
-  --workspace <W> \
-  --pages <p1.tmp,p2.tmp,...> \
-  --log "ingest | <titolo>"
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" ingest --workspace "<W>" --pages "<p1.tmp,p2.tmp,...>" --log "ingest | <titolo>"
 ```
 
 `ingest` usa upsert — è sempre sicuro rieseguirlo su pagine già esistenti.
@@ -87,7 +88,7 @@ Dopo l'ingest, valuta §promotion per ogni pagina nuova.
 ## §pdf-inbox — Ingest da PDF
 
 ```bash
-py wiki/scripts/wiki.py ingest-pdf --workspace <W> --file <percorso>
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" ingest-pdf --workspace "<W>" --file "<percorso>"
 ```
 
 1. Estrae testo via pdfplumber
@@ -115,7 +116,7 @@ Come promuovere:
 ## §lint — Manutenzione
 
 ```bash
-py wiki/scripts/wiki.py lint --workspace <W> --full
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" lint --workspace "<W>" --full
 ```
 
 Output include `semantic_duplicates`:
@@ -137,7 +138,7 @@ Output include `semantic_duplicates`:
 
 ## Configurazione workspace
 
-Copia il template `wiki/wiki.config.json` nella directory dati e modifica `<W>/wiki.config.json`:
+Copia il template `<PLUGIN_ROOT>/wiki/wiki.config.json` nella directory dati e modifica `<W>/wiki.config.json`:
 - `"workspace"` → path assoluto alla directory dati wiki (es. `C:/Users/nome/Documents/wiki-data`)
 - `"projects.ricerca.path"` → sottocartella conoscenza ricerca (default: `wiki-works/ricerca`)
 - `"qdrant.path"` → sottocartella indice vettoriale (default: `memory/qdrant`)

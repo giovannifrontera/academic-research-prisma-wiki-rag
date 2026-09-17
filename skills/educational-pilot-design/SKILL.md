@@ -5,6 +5,9 @@ description: Usa quando occorre progettare uno studio pilota o quasi-sperimental
 
 # Progettazione Studio Pilota — Scienze dell'Educazione
 
+**Percorsi e interprete:** risolvi `<PLUGIN_ROOT>` dalla posizione di questa skill installata (`skills/<nome>/SKILL.md`, due directory sopra). Sostituisci i segnaposto con path assoluti reali e usa `python` dal venv attivo su Windows/Linux. I dati restano nella cartella review; vedi [setup e modelli](../../docs/models-and-setup.md).
+
+
 ## Overview
 
 Guida la progettazione rigorosa di studi pilota e quasi-sperimentali in tutti gli ambiti delle scienze dell'educazione. Produce un **Protocollo di Ricerca** strutturato, pronto per submission, condivisione istituzionale o come base per un paper.
@@ -78,7 +81,7 @@ Se non esiste:
 
 ### Verifica RAG
 
-Controlla se esiste `rag_db/` nella cartella di lavoro. Se sì → Blocco STATO `RAG: sì`; informa l'utente che può usare `py hybrid_rag.py query "<costrutto>" --n 3` nelle fasi successive. Se no → `RAG: no`.
+Controlla se esiste `rag_db/` nella cartella di lavoro. Se sì → Blocco STATO `RAG: sì`; informa l'utente che può usare `python "<PLUGIN_ROOT>/skills/hybrid-rag/hybrid_rag_template.py" query "<costrutto>" --n 3` nelle fasi successive. Se no → `RAG: no`.
 
 Presenta all'utente le 6 fasi del processo, i 4 file che verranno prodotti, la distinzione fattibilità/efficacia, e la regola d'oro. Poi avvia la **Fase 1**.
 
@@ -351,7 +354,7 @@ Per il **Results Paper**, guida step by step:
 - Thematic Analysis: N temi, N codici, κ inter-rater (se disponibile)
 - Joint display per integrazione MM
 
-**Guardrail anti-allucinazione:** usa `py hybrid_rag.py query "<costrutto>" --n 3` per ogni sezione che cita letteratura (se RAG disponibile). Usa `[CITARE: autore/anno da verificare]` per tutte le citazioni — anche quelle che sembrano ovvie.
+**Guardrail anti-allucinazione:** usa `python "<PLUGIN_ROOT>/skills/hybrid-rag/hybrid_rag_template.py" query "<costrutto>" --n 3` per ogni sezione che cita letteratura (se RAG disponibile). Usa `[CITARE: autore/anno da verificare]` per tutte le citazioni — anche quelle che sembrano ovvie.
 
 **6b. Roadmap Post-Pilot (OBBLIGATORIO)**
 

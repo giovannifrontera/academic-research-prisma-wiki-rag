@@ -5,6 +5,7 @@ API uses Apache Solr syntax for field-specific queries.
 """
 
 import json
+from typing import Literal
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -59,10 +60,12 @@ def _search(solr_query: str, rows: int = 10, start: int = 0) -> dict:
         raise RuntimeError(f"ERIC API timeout after {DEFAULT_TIMEOUT}s") from None
 
 
-def _format_results(data: dict, query_label: str) -> str:
+def _format_results(data: dict, query_label: str, output_format: str = "text") -> str:
     response = data.get("response", {})
     total = response.get("numFound", 0)
     docs = response.get("docs", [])
+    if output_format == "json":
+        return json.dumps({"records": docs, "total": total, "start": response.get("start", 0)}, ensure_ascii=False)
 
     if not docs:
         return f"No results found for: {query_label}"
@@ -98,7 +101,7 @@ def _format_results(data: dict, query_label: str) -> str:
 
 
 @mcp.tool()
-def eric_search(query: str, rows: int = 10, start: int = 0) -> str:
+def eric_search(query: str, rows: int = 10, start: int = 0, output_format: Literal["text", "json"] = "text") -> str:
     """
     Search the ERIC database (Education Resources Information Center).
     Covers peer-reviewed journals, reports, curriculum guides, and more
@@ -117,10 +120,13 @@ def eric_search(query: str, rows: int = 10, start: int = 0) -> str:
         query: Search query. Supports boolean (AND, OR, NOT) and Solr field syntax.
         rows: Number of results to return (default 10, max 200)
         start: Offset for pagination (default 0)
+        output_format: text preview or json envelope with complete records and total.
     """
+    if output_format not in ("text", "json"):
+        raise ValueError("output_format must be 'text' or 'json'")
     try:
         data = _search(query, rows=rows, start=start)
-        return _format_results(data, query)
+        return _format_results(data, query, output_format)
     except RuntimeError as e:
         return f"Error: {e}"
     except Exception as e:
@@ -138,6 +144,7 @@ def eric_advanced_search(
     title_only: bool = False,
     rows: int = 10,
     start: int = 0,
+    output_format: Literal["text", "json"] = "text",
 ) -> str:
     """
     Advanced search on ERIC with structured filters. Builds a precise
@@ -171,7 +178,10 @@ def eric_advanced_search(
         title_only: If True, restrict query to title field only
         rows: Number of results (default 10, max 200)
         start: Pagination offset (default 0)
+        output_format: text preview or json envelope with complete records and total.
     """
+    if output_format not in ("text", "json"):
+        raise ValueError("output_format must be 'text' or 'json'")
     try:
         solr_query = _build_solr_query(
             query=query,
@@ -184,7 +194,7 @@ def eric_advanced_search(
         )
         data = _search(solr_query, rows=rows, start=start)
         label = f"{query} [filters: level={education_level}, years={year_from}-{year_to}, type={pub_type}, lang={language}]"
-        return _format_results(data, label)
+        return _format_results(data, label, output_format)
     except RuntimeError as e:
         return f"Error: {e}"
     except Exception as e:
@@ -192,17 +202,22 @@ def eric_advanced_search(
 
 
 @mcp.tool()
-def eric_get_record(eric_id: str) -> str:
+def eric_get_record(eric_id: str, output_format: Literal["text", "json"] = "text") -> str:
     """
     Retrieve full details for a specific ERIC record by its ID.
 
     Args:
         eric_id: The ERIC document ID (e.g., EJ1234567 or ED123456)
+        output_format: text details or json envelope with complete records and total.
     """
+    if output_format not in ("text", "json"):
+        raise ValueError("output_format must be 'text' or 'json'")
     try:
         solr_query = f"id:{eric_id}"
         data = _search(solr_query, rows=1)
         docs = data.get("response", {}).get("docs", [])
+        if output_format == "json":
+            return _format_results(data, eric_id, output_format)
 
         if not docs:
             return f"Record not found: {eric_id}"
@@ -237,6 +252,7 @@ def eric_search_by_descriptor(
     education_level: str = None,
     rows: int = 10,
     start: int = 0,
+    output_format: Literal["text", "json"] = "text",
 ) -> str:
     """
     Search ERIC using controlled vocabulary descriptors (ERIC Thesaurus terms).
@@ -254,7 +270,10 @@ def eric_search_by_descriptor(
         education_level: Education level filter (optional, e.g. "Secondary Education")
         rows: Number of results (default 10, max 200)
         start: Pagination offset for results > rows (default 0)
+        output_format: text preview or json envelope with complete records and total.
     """
+    if output_format not in ("text", "json"):
+        raise ValueError("output_format must be 'text' or 'json'")
     try:
         solr_query = _build_solr_query(
             query=f'descriptor:"{descriptor}"',
@@ -264,7 +283,7 @@ def eric_search_by_descriptor(
         )
         data = _search(solr_query, rows=rows, start=start)
         label = f'descriptor:"{descriptor}" [level={education_level}, years={year_from}-{year_to}]'
-        return _format_results(data, label)
+        return _format_results(data, label, output_format)
     except RuntimeError as e:
         return f"Error: {e}"
     except Exception as e:

@@ -179,7 +179,7 @@ wiki.py scan-inbox --workspace <path>
 Un frontend web read-only per esplorare il wiki nel browser — senza toccare nessun workflow.
 
 ```
-py scripts/wiki.py serve --workspace /path/al/workspace [--port 7331] [--no-auth]
+python scripts/wiki.py serve --workspace /path/al/workspace [--port 7331] [--no-auth]
 ```
 
 Apri `http://localhost:7331`.
@@ -441,7 +441,7 @@ Config minimale:
 ### Inizializza e testa
 
 ```bash
-py scripts/wiki.py rebuild --workspace my-workspace/
+python scripts/wiki.py rebuild --workspace my-workspace/
 pytest tests/ -v
 # Atteso: 82 test passati
 ```

@@ -1,0 +1,12 @@
+{
+  "name": "academic-research-prisma",
+  "description": "Academic PRISMA workflow with evidence RAG and persistent wiki memory",
+  "owner": { "name": "Giovanni Frontera" },
+  "plugins": [
+    {
+      "name": "academic-research-prisma-wiki-rag",
+      "source": "./",
+      "description": "PRISMA review, evidence synthesis, pilot design and DOCX export with wiki memory"
+    }
+  ]
+}

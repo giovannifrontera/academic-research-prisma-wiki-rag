@@ -131,11 +131,19 @@ def cmd_ingest(args, cfg):
 
 def cmd_query(args, cfg):
     from datetime import datetime as _datetime
+    from wiki_rerank import rank_results
+    if args.k < 1:
+        raise ValueError("k must be positive")
     db = get_db(_qdrant_path(args.workspace, cfg))
-    model, _ = _load_model(cfg["qdrant"]["embedding_model"])
-    vector = model.encode(args.q, normalize_embeddings=True).tolist()
-
-    results = query_similar(db, vector, k=args.k)
+    try:
+        model, _ = _load_model(cfg["qdrant"]["embedding_model"])
+        vector = model.encode(args.q, normalize_embeddings=True).tolist()
+        raw = query_similar(db, vector, k=args.k * 4)
+    finally:
+        close = getattr(db, "close", None)
+        if close:
+            close()
+    results = rank_results(args.q, raw, cfg, args.k)
 
     paths = list({r["path"] for r in results})
     log_path = Path(args.workspace) / ".wiki-query-log.jsonl"
@@ -145,7 +153,8 @@ def cmd_query(args, cfg):
 
     ok({"op": "query", "results": [
         {"path": r["path"], "chunk_id": r["chunk_id"],
-         "score": float(r.get("_distance", 0)), "excerpt": r["chunk_text"][:200]}
+         "score": float(r.get("_distance", 0)), "excerpt": r["chunk_text"][:200],
+         **({"rerank_score": r["_rerank_score"]} if "_rerank_score" in r else {})}
         for r in results
     ]})
 
@@ -469,6 +478,4 @@ def cmd_serve(args, cfg):
     no_auth = getattr(args, "no_auth", False)
     wiki_server.configure(args.workspace, cfg, no_auth)
     uvicorn.run("wiki_server:app", host=args.host, port=args.port, reload=False)
-
-
 

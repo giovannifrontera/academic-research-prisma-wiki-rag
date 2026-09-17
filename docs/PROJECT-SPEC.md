@@ -84,7 +84,7 @@ def write_state(path: str, data: dict) -> None:
     Sintesi sistematica + export wiki + build RAG
          ↓
     ┌────────────────────────────┐
-    │  Wiki (LanceDB bge-m3)     │ ← memoria cross-progetto permanente
+    │  Wiki (Qdrant + bge-m3)    │ ← memoria cross-progetto permanente
     │  wiki-works/{proj}/        │   entity page per ogni paper incluso
     │  entities/ + synthesis/    │   sintesi tematica
     └────────────────────────────┘
@@ -238,7 +238,7 @@ def write_state(path: str, data: dict) -> None:
     },
     "rag": {
       "status": "completed | pending",
-      "backend": "lancedb | chromadb",
+      "backend": "qdrant | chromadb | lancedb",
       "indexed_papers": 0,
       "completed_at": "ISO8601 | null"
     },
@@ -314,13 +314,13 @@ Append-only. Ogni skill aggiunge entry senza mai sovrascrivere.
 
 ### 4.1 Due Sistemi Distinti
 
-| | **Wiki** (bge-m3 + LanceDB) | **hybrid-rag** (RRF + LanceDB/ChromaDB) |
+| | **Wiki** (bge-m3 + Qdrant) | **hybrid-rag** (RRF + Qdrant; ChromaDB/LanceDB opzionali) |
 |--|--|--|
 | Scope | Cross-progetto, permanente | Locale al singolo progetto |
 | Workspace | `{wiki_workspace}/` esterno al progetto | `{project-root}/rag_db/` |
 | Cosa contiene | Entity pages strutturate + sintesi | Chunks dei paper per retrieval |
 | Costruito quando | Dopo PRISMA Fase 4 e Fase 6 | Dopo PRISMA Fase 4 |
-| Query | `wiki.py query --workspace W --q "..." --k 5` | `py hybrid_rag.py query "..." --n 3` |
+| Query | `python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" query --workspace W --q "..." --k 5` | `python hybrid_rag.py query "..." --n 3` |
 | Usato da | Tutte le skill per conoscenza trasversale | Solo preprint (guardrail anti-allucinazione) |
 | Abstract | Completo nella entity page | Chunk 512 token con overlap 64 |
 
@@ -342,7 +342,7 @@ Append-only. Ogni skill aggiunge entry senza mai sovrascrivere.
 │       ├── concepts/
 │       └── synthesis/
 └── memory/
-    └── lancedb/                        ← indice vettoriale (ricostruibile)
+    └── qdrant/                         ← indice vettoriale (ricostruibile)
 ```
 
 ### 4.3 Formato Entity Page
@@ -373,12 +373,12 @@ Append-only. Ogni skill aggiunge entry senza mai sovrascrivere.
 |---------|---------|------------|---------|
 | Pre-PRISMA Fase 1 | Wiki | Query conoscenza pre-esistente | `wiki.py query --workspace W --q "PICO topic" --k 5` |
 | Post-PRISMA Fase 4 | Wiki | Ingest 24 entity pages | `wiki.py ingest --workspace W --pages "e1.tmp,e2.tmp,..."` |
-| Post-PRISMA Fase 4 | hybrid-rag | Indicizza paper (solo eligibility) | `py hybrid_rag.py index-prisma eligibility_prisma.json` |
+| Post-PRISMA Fase 4 | hybrid-rag | Indicizza paper (solo eligibility) | `python hybrid_rag.py index-prisma eligibility_prisma.json` |
 | Post-PRISMA Fase 6 | Wiki | Ingest synthesis page | `wiki.py ingest --workspace W --pages "synthesis.tmp"` |
 | research-design Fase 1 | Wiki | Query framework teorici | `wiki.py query --workspace W --q "framework [dominio]" --k 3` |
 | data-collection | Wiki | Query strumenti da letteratura | `wiki.py query --workspace W --q "strumenti [costrutto]" --k 3` |
 | data-analysis | Wiki | Query effect size da letteratura | `wiki.py query --workspace W --q "effect size [intervento]" --k 3` |
-| preprint ogni sezione | hybrid-rag | Chunks per citazioni | `py hybrid_rag.py query "[costrutto]" --n 3` |
+| preprint ogni sezione | hybrid-rag | Chunks per citazioni | `python hybrid_rag.py query "[costrutto]" --n 3` |
 
 ---
 
@@ -446,7 +446,7 @@ Progetto: [nome] | Ultimo accesso: [data]
 Ricercatore: [nome] | Dominio: [dominio] | Livello: [livello]
 
 ✅ PRISMA:          24 paper inclusi (completato 2026-05-28)
-✅ RAG:             24 paper indicizzati, backend: lancedb
+✅ RAG:             24 paper indicizzati, backend: qdrant
 ✅ Wiki:            25 pagine, wiki-works/progetto-x/
 🔄 Research-design: Fase 3/6 — MOD-QN1 — in corso
 ⏳ Data-collection: in attesa
@@ -557,13 +557,13 @@ Il path `{repo_path}` è registrato in `.project-state.json`. La skill `pipeline
 ### 7.4 Comandi
 
 ```bash
-py hybrid_rag.py choose-backend --backend lancedb     # prima di init
-py hybrid_rag.py init                                  # crea rag_db/
-py hybrid_rag.py index-prisma eligibility_prisma.json # SOLO eligibility
-py hybrid_rag.py index-pdf pdf_manuali/               # opzionale: Stream 2
-py hybrid_rag.py query "costrutto" --n 3              # retrieval
-py hybrid_rag.py query "costrutto" --n 5 --only-prisma
-py hybrid_rag.py status
+python hybrid_rag.py choose-backend --backend qdrant   # default; prima di init
+python hybrid_rag.py init                              # crea rag_db/
+python hybrid_rag.py index-prisma eligibility_prisma.json # SOLO eligibility
+python hybrid_rag.py index-pdf pdf_inclusi/            # opzionale: Stream 2 incluso
+python hybrid_rag.py query "costrutto" --n 3           # retrieval
+python hybrid_rag.py query "costrutto" --n 5 --only-prisma
+python hybrid_rag.py status
 ```
 
 ---
@@ -853,7 +853,7 @@ La skill allega la checklist del reporting standard come `preprint/reporting_che
 
 Per ogni affermazione citata in Introduction, Methods o Discussion:
 ```bash
-py hybrid_rag.py query "[costrutto da citare]" --n 3
+python hybrid_rag.py query "[costrutto da citare]" --n 3
 ```
 - Se il paper è nel RAG → cita normalmente con (Autore, Anno)
 - Se non è nel RAG → marca come `[CITARE: Autore, Anno — da verificare]`
@@ -1060,7 +1060,7 @@ Effect size consigliato:
 
 **Correzione:** In tutte le skill, usare il path costruito da `.project-state.json → repo_path`:
 ```bash
-py {repo_path}/wiki/scripts/wiki.py query --workspace {wiki_workspace} --q "..."
+python "{repo_path}/wiki/scripts/wiki.py" query --workspace "{wiki_workspace}" --q "..."
 ```
 
 ---

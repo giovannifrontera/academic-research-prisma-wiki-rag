@@ -64,9 +64,8 @@ flowchart LR
     B6 --> C[Hybrid RAG\nEvidence Synthesis]
     C --> D[Pilot Study\nDesign]
     D --> E[Academic\nExport]
-    E --> E1[PDF via Pandoc]
-    E --> E2[DOCX APA 7]
-    E --> E3[LaTeX preprint]
+    E --> E1[DOCX via Pandoc]
+    E --> E2[Optional Word template]
 ```
 
 The wiki sits at both ends of the pipeline: queried before each new review to surface relevant prior evidence, and ingested after data extraction to make the new findings available to future reviews.
@@ -114,16 +113,13 @@ Generates quasi-experimental study protocols with:
 - Timeline and milestone structure
 
 ### Academic Export
-Pandoc pipeline producing publication-ready outputs from a single Markdown source:
+Pandoc pipeline producing a Word document from a Markdown source:
 
 ```bash
-pandoc synthesis.md \
-  --citeproc --bibliography=refs.bib \
-  --csl=apa-7.csl \
-  -o output.pdf    # or .docx, .tex
+pandoc synthesis.md -o output.docx --toc --toc-depth=3
 ```
 
-Supports: APA 7th · Chicago 17 · Vancouver · journal-specific CSL styles. Output is Overleaf-compatible (`.tex`).
+Use `--reference-doc=template.docx` when a university or journal Word template is available. PDF, LaTeX and automatic CSL styling are not part of the current skill.
 
 ### Pipeline Orchestrator
 The `pipeline-ricerca` skill coordinates the full sequence: PICO formulation → PRISMA → synthesis → pilot design → export. It manages state file handoffs between phases and ensures the wiki is queried at the start and ingested at the end of each completed review.
@@ -204,7 +200,7 @@ Each server implements the [Model Context Protocol](https://modelcontextprotocol
 ## 🔬 Technical Deep-Dive
 
 ### Skill Architecture
-Claude Code skills are Markdown files placed in `~/.claude/skills/`. Each skill contains:
+Claude Code discovers the skills from the installed plugin's `skills/` directory. Each skill contains:
 - **Role definition** — constrains Claude to a specific research persona
 - **Phase instructions** — step-by-step protocol with decision criteria
 - **Output schema** — JSON/Markdown format for state files
@@ -226,9 +222,8 @@ Claude Code skills are Markdown files placed in `~/.claude/skills/`. Each skill 
 
 ### Export Pipeline
 ```
-synthesis.md → [Pandoc 3.x] → PDF (LaTeX engine: xelatex)
-                             → DOCX (reference.docx APA template)
-                             → TEX (Overleaf-compatible)
+synthesis.md → [Pandoc 3.x] → DOCX
+                              └─ optional reference.docx template
 ```
 
 ---
@@ -239,6 +234,7 @@ synthesis.md → [Pandoc 3.x] → PDF (LaTeX engine: xelatex)
 
 ```
 /plugin marketplace add giovannifrontera/academic-research-prisma-wiki-rag
+/plugin install academic-research-prisma-wiki-rag@academic-research-prisma
 ```
 
 For local testing without a marketplace, clone the repo and run Claude Code
@@ -246,11 +242,9 @@ with `claude --plugin-dir .` from inside it. Skills and the six MCP servers
 (ERIC, OpenAIRE, CORE, DOAJ, Zenodo, Semantic Scholar) are all declared in
 `.claude-plugin/plugin.json` — no manual `claude mcp add` needed.
 
-### 2. Install wiki dependencies
+### 2. Create one Python environment
 
-```bash
-python -m pip install -r requirements.txt
-```
+Create a virtual environment, activate it, and run `python -m pip install -r "<PLUGIN_ROOT>/requirements.txt"`. Start Claude Code from that same terminal so the MCP servers use the same interpreter. See [Windows/Linux setup and GPU verification](docs/models-and-setup.md).
 
 ### 3. Set optional API keys
 
@@ -276,7 +270,7 @@ Claude will:
 6. Ingest the extraction into the wiki
 7. Produce a hybrid RAG synthesis
 8. Generate a pilot study design if requested
-9. Export a preprint-ready document via Pandoc
+9. Export the Markdown report to DOCX via Pandoc
 
 ---
 

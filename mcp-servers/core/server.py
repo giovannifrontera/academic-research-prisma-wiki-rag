@@ -8,6 +8,7 @@ Requires a free API key: https://core.ac.uk/services/api
 """
 
 import json
+from typing import Literal
 import sys
 import urllib.request
 import urllib.parse
@@ -100,6 +101,7 @@ def core_search(
     language: str = None,
     rows: int = 10,
     offset: int = 0,
+    output_format: Literal["text", "json"] = "text",
 ) -> str:
     """
     Search CORE for open access full-text papers.
@@ -114,7 +116,10 @@ def core_search(
         language: Language code (e.g. "it" for Italian, "en" for English)
         rows: Number of results (default 10, max 100)
         offset: Pagination offset (default 0)
+        output_format: text preview or json envelope with complete records and total.
     """
+    if output_format not in ("text", "json"):
+        raise ValueError("output_format must be 'text' or 'json'")
     try:
         filters = []
         if year_from:
@@ -127,6 +132,8 @@ def core_search(
         data = _post("search/works", payload)
         results = data.get("results", [])
         total = data.get("totalHits", 0)
+        if output_format == "json":
+            return json.dumps({"records": results, "total": total, "offset": offset, "limit": rows}, ensure_ascii=False)
         return _format_results(results, query, total)
     except RuntimeError as e:
         return f"Error: {e}"
@@ -169,7 +176,7 @@ def core_count(
 
 
 @mcp.tool()
-def core_get(work_id: str) -> str:
+def core_get(work_id: str, output_format: Literal["text", "json"] = "text") -> str:
     """
     Retrieve full metadata for a specific CORE work by its ID.
     Use to get complete details (fulltext URL, affiliations) for a paper
@@ -177,7 +184,10 @@ def core_get(work_id: str) -> str:
 
     Args:
         work_id: CORE work ID (numeric, from core_search results)
+        output_format: text details or json envelope with complete records and total.
     """
+    if output_format not in ("text", "json"):
+        raise ValueError("output_format must be 'text' or 'json'")
     try:
         safe_id = urllib.parse.quote(str(work_id), safe="")
         url = f"{BASE_URL}/works/{safe_id}"
@@ -192,6 +202,8 @@ def core_get(work_id: str) -> str:
         except TimeoutError:
             raise RuntimeError(f"CORE API timeout after {DEFAULT_TIMEOUT}s") from None
 
+        if output_format == "json":
+            return json.dumps({"records": [r], "total": 1}, ensure_ascii=False)
         authors = r.get("authors", [])
         auth_names = [a.get("name", "") if isinstance(a, dict) else str(a) for a in authors]
         abstract = r.get("abstract", "") or ""

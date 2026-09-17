@@ -50,10 +50,13 @@ def check(workspace: str) -> list[str]:
             else:
                 try:
                     db = wiki_qdrant.get_db(str(qdrant_path))
-                    if not wiki_qdrant.collection_exists(db, "wiki_pages"):
-                        issues.append("wiki_pages collection not found — run: wiki.py rebuild")
-                    elif wiki_qdrant.count_rows(db, "wiki_pages") == 0:
-                        issues.append("wiki_pages is empty — run: wiki.py rebuild")
+                    try:
+                        if not wiki_qdrant.collection_exists(db, "wiki_pages"):
+                            issues.append("wiki_pages collection not found — run: wiki.py rebuild")
+                        elif wiki_qdrant.count_rows(db, "wiki_pages") == 0:
+                            issues.append("wiki_pages is empty — run: wiki.py rebuild")
+                    finally:
+                        db.close()
                 except Exception as e:
                     issues.append(f"Qdrant error: {e}")
 
@@ -94,7 +97,7 @@ def emit_briefing(workspace: str) -> None:
         "",
         "MANDATORY BEFORE ANY WIKI OPERATION — execute these Reads now:",
         "  1. Read wiki-session.md              (current session state)",
-        "  2. Read skills/wiki-core.md          (full protocol — do not skip)",
+        f"  2. Read {Path(__file__).resolve().parents[2] / 'skills/wiki-core/SKILL.md'}",
         "",
         "NON-NEGOTIABLE RULES:",
         "  - Never write directly to wiki/ or wiki-works/ — always use wiki.py",
@@ -102,9 +105,8 @@ def emit_briefing(workspace: str) -> None:
         "    (text extracted via pdfplumber, deposited in wiki-works/<project>/raw/)",
         "  - After ingest-pdf: YOU write structured .tmp pages, then call wiki.py ingest",
         "  - process-raw: ONLY for bulk re-indexing of already-deposited raw files,",
-        "    NOT a substitute for the full INGEST workflow (wiki-core.md §ingest)",
-        "  - wiki-setup skill: NOT a Claude Code plugin — use Read skills/wiki-setup.md",
-        "  - wiki-core skill: NOT a Claude Code plugin — use Read skills/wiki-core.md",
+        "    NOT a substitute for the full INGEST workflow (wiki-core §ingest)",
+        "  - Use the plugin's wiki-setup and wiki-core skills for setup and operations",
         "</wiki-briefing>",
     ]
     print("\n".join(lines))
@@ -128,8 +130,7 @@ def main():
         lines = [
             "<wiki-setup-required>",
             "Wiki system not configured correctly.",
-            "DO NOT use Skill('wiki-setup') — it is not a plugin.",
-            "Instead: Read skills/wiki-setup.md and follow it step by step.\n",
+            f"Read {Path(__file__).resolve().parents[2] / 'skills/wiki-setup/SKILL.md'} and follow it step by step.",
             "Issues found:",
         ]
         for issue in issues:

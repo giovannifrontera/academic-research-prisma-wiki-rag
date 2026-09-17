@@ -99,14 +99,6 @@ def test_lint_full_reports_semantic_duplicates(tmp_workspace, monkeypatch):
     assert len(semantic) == 1
     assert semantic[0]["action"] == "auto_merge"
 
-
-
-
-    output = json.loads(captured.getvalue())
-    assert output["status"] == "ok"
-    assert output["patterns_found"] == 1
-
-
 def test_ingest_pdf_already_in_inbox_does_not_crash(tmp_workspace, monkeypatch):
     """Se il file è già in pdf-inbox/, ingest-pdf non deve crashare con WinError 32."""
     from wiki_workflows import cmd_ingest_pdf

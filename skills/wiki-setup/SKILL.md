@@ -5,23 +5,26 @@ description: First-time setup of the wiki research memory system for Claude Code
 
 # Wiki Setup — Claude Code
 
+**Percorsi e interprete:** risolvi `<PLUGIN_ROOT>` dalla posizione di questa skill installata (`skills/<nome>/SKILL.md`, due directory sopra). Sostituisci i segnaposto con path assoluti reali e usa `python` dal venv attivo su Windows/Linux. I dati restano nella cartella review; vedi [setup e modelli](../../docs/models-and-setup.md).
+
+
 **Skill rigida:** esegui ogni step nell'ordine indicato senza saltarne nessuno.
 
 ---
 
 ## Step 1 — Dipendenze Python
 
-Dalla radice del repository, usa lo stesso interprete per installazione e comandi:
+Crea e attiva il venv seguendo [setup e modelli](../../docs/models-and-setup.md). Usa lo stesso interprete per installazione, comandi e avvio di Claude:
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install -r "<PLUGIN_ROOT>/requirements.txt"
 ```
 
 ---
 
 ## Step 2 — Configura `wiki/wiki.config.json`
 
-Crea la directory dati e copia `wiki/wiki.config.json` al suo interno come
+Crea la directory dati e copia `<PLUGIN_ROOT>/wiki/wiki.config.json` al suo interno come
 `<W>/wiki.config.json`. Modifica questa copia e imposta:
 
 ```json
@@ -37,7 +40,7 @@ Il workspace è la **directory dati** dove vivranno i tuoi paper e la tua conosc
 ## Step 3 — Inizializza il sistema
 
 ```bash
-python wiki/scripts/wiki.py rebuild --workspace C:/Users/tuo-nome/Documents/wiki-data
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" rebuild --workspace "C:/Users/tuo-nome/Documents/wiki-data"
 ```
 
 Prepara questa struttura; rebuild indicizza le pagine Markdown già presenti:
@@ -60,7 +63,7 @@ wiki-data/
 ## Step 4 — Verifica
 
 ```bash
-python wiki/scripts/wiki.py query --workspace C:/Users/tuo-nome/Documents/wiki-data --q "test" --k 1
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" query --workspace "C:/Users/tuo-nome/Documents/wiki-data" --q "test" --k 1
 ```
 
 Output atteso: JSON con `"status": "ok"` e `"results": []` — l'indice è vuoto, è corretto.

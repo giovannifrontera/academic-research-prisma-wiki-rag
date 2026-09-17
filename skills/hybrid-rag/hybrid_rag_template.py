@@ -3,8 +3,8 @@
 hybrid_rag.py — Hybrid RAG per ricerche accademiche
 Operazioni: init | choose-model | choose-backend | index-prisma | index-pdf | query | status
 
-Generato dalla skill ~/.claude/skills/hybrid-rag
-Backend supportati: chromadb (default) | lancedb (raccomandato) | qdrant
+Risorsa della skill plugin hybrid-rag.
+Backend supportati: qdrant (default) | chromadb | lancedb
 """
 
 import argparse
@@ -78,7 +78,7 @@ def _load_config() -> dict:
     if CONFIG_FILE.exists():
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    return {"model_key": DEFAULT_MODEL_KEY, "backend": BACKEND_CHROMA}
+    return {"model_key": DEFAULT_MODEL_KEY, "backend": BACKEND_QDRANT}
 
 def _save_config(cfg: dict):
     Path(RAG_DIR).mkdir(exist_ok=True)
@@ -136,6 +136,10 @@ class _ChromaBackend:
         collection = self._client.get_or_create_collection(coll)
         collection.upsert(documents=docs, embeddings=embeddings, ids=ids, metadatas=metas)
 
+    def delete_ids(self, coll: str, ids: list):
+        if ids:
+            self._client.get_collection(coll).delete(ids=ids)
+
     def search(self, coll: str, query_emb: list, n: int, filter_obj=None) -> list:
         try:
             collection = self._client.get_collection(coll)
@@ -145,7 +149,8 @@ class _ChromaBackend:
             r = collection.query(
                 query_embeddings=[query_emb],
                 n_results=min(n, total),
-                include=["documents", "metadatas", "distances", "ids"]
+                include=["documents", "metadatas", "distances"],
+                where=filter_obj,
             )
             return [
                 {
@@ -159,30 +164,28 @@ class _ChromaBackend:
                 )
             ]
         except Exception as e:
-            print(f"  Errore dense search su {coll}: {e}")
-            return []
+            raise RuntimeError(f"Errore dense search su {coll}: {e}") from e
 
-    def get_all(self, coll: str) -> list:
+    def get_all(self, coll: str, filter_obj=None) -> list:
         try:
             collection = self._client.get_collection(coll)
-            result = collection.get(include=["documents", "metadatas"])
+            result = collection.get(include=["documents", "metadatas"], where=filter_obj)
             return [
                 {"id": doc_id, "text": doc, "meta": meta, "collection": coll}
                 for doc, meta, doc_id in zip(
                     result["documents"], result["metadatas"], result["ids"]
                 )
             ]
-        except Exception:
-            return []
+        except Exception as e:
+            raise RuntimeError(f"Errore lettura corpus {coll}: {e}") from e
 
     def count(self, coll: str) -> int:
-        try:
-            return self._client.get_collection(coll).count()
-        except Exception:
+        if coll not in self.list_collections():
             return 0
+        return self._client.get_collection(coll).count()
 
     def list_collections(self) -> list:
-        return [c.name for c in self._client.list_collections()]
+        return [c if isinstance(c, str) else c.name for c in self._client.list_collections()]
 
 
 class _QdrantBackend:
@@ -217,6 +220,14 @@ class _QdrantBackend:
         ]
         self._client.upsert(collection_name=coll, points=points)
 
+    def delete_ids(self, coll: str, ids: list):
+        if ids:
+            from qdrant_client.models import PointIdsList
+            self._client.delete(
+                collection_name=coll,
+                points_selector=PointIdsList(points=[self._to_uuid(i) for i in ids]),
+            )
+
     def _point_to_doc(self, point, coll: str) -> dict:
         payload = point.payload or {}
         meta = {k: v for k, v in payload.items() if not k.startswith("_")}
@@ -230,35 +241,36 @@ class _QdrantBackend:
 
     def search(self, coll: str, query_emb: list, n: int, filter_obj=None) -> list:
         try:
-            results = self._client.search(
+            results = self._client.query_points(
                 collection_name=coll,
-                query_vector=query_emb,
+                query=query_emb,
                 limit=n,
                 with_payload=True,
                 query_filter=filter_obj,
             )
-            return [self._point_to_doc(r, coll) for r in results]
+            return [self._point_to_doc(r, coll) for r in results.points]
         except Exception as e:
-            print(f"  Errore dense search su {coll}: {e}")
-            return []
+            raise RuntimeError(f"Errore dense search su {coll}: {e}") from e
 
-    def get_all(self, coll: str) -> list:
-        try:
-            records, _ = self._client.scroll(
+    def get_all(self, coll: str, filter_obj=None) -> list:
+        docs, offset = [], None
+        while True:
+            records, offset = self._client.scroll(
                 collection_name=coll,
-                limit=10_000,
+                scroll_filter=filter_obj,
+                offset=offset,
+                limit=1_000,
                 with_payload=True,
                 with_vectors=False,
             )
-            return [self._point_to_doc(r, coll) for r in records]
-        except Exception:
-            return []
+            docs.extend(self._point_to_doc(r, coll) for r in records)
+            if offset is None:
+                return docs
 
     def count(self, coll: str) -> int:
-        try:
-            return self._client.count(collection_name=coll).count
-        except Exception:
+        if not self._client.collection_exists(coll):
             return 0
+        return self._client.count(collection_name=coll).count
 
     def list_collections(self) -> list:
         return [c.name for c in self._client.get_collections().collections]
@@ -349,6 +361,12 @@ class _LanceBackend:
         except Exception as e:
             print(f"  Avviso FTS index su '{coll}': {e}")
 
+    def delete_ids(self, coll: str, ids: list):
+        if ids:
+            quoted = ", ".join("'" + str(i).replace("'", "''") + "'" for i in ids)
+            self._get_table(coll).delete(f"id IN ({quoted})")
+            self._rebuild_fts(coll)
+
     def search(self, coll: str, query_emb: list, n: int, filter_obj=None) -> list:
         table = self._get_table(coll)
         if table.count_rows() == 0:
@@ -364,13 +382,12 @@ class _LanceBackend:
             for _, row in df.iterrows():
                 dist  = float(row.get("_distance", 0))
                 score = round(max(0.0, 1.0 - dist), 4)
-                meta  = {k: str(row.get(k, "")) for k in ["title", "authors", "year", "doi", "source_db"]}
+                meta = self._metadata(row, coll)
                 results.append({"id": row["id"], "text": row["text"], "meta": meta,
                                  "score": score, "collection": coll})
             return results
         except Exception as e:
-            print(f"  Errore dense search su {coll}: {e}")
-            return []
+            raise RuntimeError(f"Errore dense search su {coll}: {e}") from e
 
     def search_fts(self, coll: str, query_text: str, n: int, filter_obj=None) -> list:
         """FTS nativa via tantivy — sostituisce rank-bm25."""
@@ -385,13 +402,20 @@ class _LanceBackend:
             results = []
             for _, row in df.iterrows():
                 score = float(row.get("_score", 0.0))
-                meta  = {k: str(row.get(k, "")) for k in ["title", "authors", "year", "doi", "source_db"]}
+                meta = self._metadata(row, coll)
                 results.append({"id": row["id"], "text": row["text"], "meta": meta,
                                  "score": score, "collection": coll})
             return results
         except Exception as e:
-            print(f"  FTS non disponibile su {coll}: {e}. Re-indicizza per ricostruire l'indice.")
-            return []
+            raise RuntimeError(f"FTS non disponibile su {coll}: {e}. Re-indicizza.") from e
+
+    def _metadata(self, row, coll: str) -> dict:
+        meta = {k: str(row.get(k, "")) for k in
+                ["title", "authors", "year", "doi", "source_db", "filename"]}
+        meta["source_type"] = SOURCE_PRISMA if coll == COLLECTION_PRISMA else SOURCE_PDF
+        for key in ("chunk_index", "total_chunks", "page"):
+            meta[key] = int(row.get(key, 0))
+        return meta
 
     def get_all(self, coll: str) -> list:
         table = self._get_table(coll)
@@ -399,23 +423,19 @@ class _LanceBackend:
             df = table.to_pandas()
             results = []
             for _, row in df.iterrows():
-                meta = {k: str(row.get(k, "")) for k in ["title", "authors", "year", "doi", "source_db"]}
+                meta = self._metadata(row, coll)
                 results.append({"id": row["id"], "text": row["text"], "meta": meta, "collection": coll})
             return results
-        except Exception:
-            return []
+        except Exception as e:
+            raise RuntimeError(f"Errore lettura corpus {coll}: {e}") from e
 
     def count(self, coll: str) -> int:
-        try:
-            return self._get_table(coll).count_rows()
-        except Exception:
+        if coll not in self.list_collections():
             return 0
+        return self._get_table(coll).count_rows()
 
     def list_collections(self) -> list:
-        try:
-            return list(self._db.table_names())
-        except Exception:
-            return []
+        return list(self._db.table_names())
 
 
 _backend_instance: Optional[object] = None
@@ -425,19 +445,21 @@ def _get_backend(cfg: Optional[dict] = None):
     if _backend_instance is None:
         if cfg is None:
             cfg = _load_config()
-        b = cfg.get("backend", BACKEND_CHROMA)
+        b = cfg.get("backend", BACKEND_QDRANT)
         if b == BACKEND_QDRANT:
             _backend_instance = _QdrantBackend()
         elif b == BACKEND_LANCE:
             _backend_instance = _LanceBackend()
-        else:
+        elif b == BACKEND_CHROMA:
             _backend_instance = _ChromaBackend()
+        else:
+            raise ValueError(f"Backend non riconosciuto: {b}")
     return _backend_instance
 
 
 # ── DEPS ──────────────────────────────────────────────────────────────────────
 
-def _deps_installed(backend: str = BACKEND_CHROMA) -> bool:
+def _deps_installed(backend: str = BACKEND_QDRANT) -> bool:
     try:
         import sentence_transformers, fitz  # noqa: F401
         if backend == BACKEND_QDRANT:
@@ -483,7 +505,7 @@ def _parse_qdrant_filter(filter_str: str):
     """
     Converte 'year>=2020,source_db=eric' in un oggetto Filter Qdrant.
     Operatori: = >= <= > <   Valori numerici per range, stringhe per match.
-    Restituisce None se la stringa è vuota o non valida.
+    Rifiuta filtri non validi per evitare ricerche senza restrizioni.
     """
     from qdrant_client.models import Filter, FieldCondition, Range, MatchValue
     conditions = []
@@ -491,17 +513,16 @@ def _parse_qdrant_filter(filter_str: str):
         part = part.strip()
         m = re.match(r"(\w+)\s*(>=|<=|>|<|=)\s*(.+)", part)
         if not m:
-            print(f"  Filtro ignorato (sintassi non valida): '{part}'")
-            continue
+            raise ValueError(f"Filtro non valido: '{part}'")
         key, op, val = m.groups()
         if op == "=":
-            conditions.append(FieldCondition(key=key, match=MatchValue(value=val)))
+            value = int(val) if key == "year" and val.strip().isdigit() else val.strip()
+            conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
         else:
             try:
                 num = float(val) if "." in val else int(val)
             except ValueError:
-                print(f"  Filtro ignorato (valore non numerico per operatore range): '{part}'")
-                continue
+                raise ValueError(f"Filtro range non numerico: '{part}'")
             range_map = {">=": {"gte": num}, "<=": {"lte": num}, ">": {"gt": num}, "<": {"lt": num}}
             conditions.append(FieldCondition(key=key, range=Range(**range_map[op])))
     return Filter(must=conditions) if conditions else None
@@ -515,8 +536,7 @@ def _parse_lance_filter(filter_str: str) -> Optional[str]:
         part = part.strip()
         m = re.match(r"(\w+)\s*(>=|<=|>|<|=)\s*(.+)", part)
         if not m:
-            print(f"  Filtro ignorato (sintassi non valida): '{part}'")
-            continue
+            raise ValueError(f"Filtro non valido: '{part}'")
         key, op, val = m.groups()
         try:
             float(val)
@@ -540,7 +560,7 @@ def _rrf_merge(ranked_lists: list, k: int = RRF_K) -> list:
 
 def op_choose_backend(backend_key: Optional[str] = None):
     cfg = _load_config()
-    current = cfg.get("backend", BACKEND_CHROMA)
+    current = cfg.get("backend", BACKEND_QDRANT)
 
     backend_info = {
         BACKEND_CHROMA: {
@@ -548,14 +568,14 @@ def op_choose_backend(backend_key: Optional[str] = None):
             "notes": "Pure Python, zero config, storage in rag_db/. BM25 manuale via rank-bm25.",
         },
         BACKEND_LANCE: {
-            "label": "LanceDB (raccomandato)",
+            "label": "LanceDB",
             "notes": (
                 "FTS nativa (tantivy) sostituisce BM25 — nessuna dipendenza rank-bm25. "
-                "Stessa libreria del wiki system. Filtri SQL: --filter 'year>=2020,source_db=eric'."
+                "Filtri SQL: --filter 'year>=2020,source_db=eric'."
             ),
         },
         BACKEND_QDRANT: {
-            "label": "Qdrant",
+            "label": "Qdrant (default)",
             "notes": (
                 "Filtri avanzati su metadati, HNSW ottimizzato. "
                 "Storage in rag_db/qdrant/. Richiede qdrant-client. Corpus > 200 paper."
@@ -570,7 +590,7 @@ def op_choose_backend(backend_key: Optional[str] = None):
             print(f"  [{key}]{marker}")
             print(f"    {info['notes']}\n")
 
-        print("Nota: cambiare backend richiede 'py hybrid_rag.py init' + re-indicizzazione.")
+        print("Nota: cambiare backend richiede 'python hybrid_rag.py init' + re-indicizzazione.")
         choice = input(
             f"Inserisci chiave [{'/'.join(backend_info.keys())}] (invio = mantieni {current}): "
         ).strip().lower()
@@ -587,7 +607,7 @@ def op_choose_backend(backend_key: Optional[str] = None):
         has_data = bool(cfg.get("indexed_with"))
         if has_data:
             print(f"\nATTENZIONE: il DB attuale ('{current}') contiene dati indicizzati.")
-            print("Cambiare backend richiede: rm -rf rag_db/ → py hybrid_rag.py init → re-indicizza.")
+            print("Cambiare backend richiede: rimuovi rag_db/ → python hybrid_rag.py init → re-indicizza.")
             confirm = input("Procedere comunque? [s/N] ").strip().lower()
             if confirm != "s":
                 print("Annullato.")
@@ -597,11 +617,11 @@ def op_choose_backend(backend_key: Optional[str] = None):
     _save_config(cfg)
     print(f"\nBackend impostato: {backend_key} — {backend_info[backend_key]['label']}")
     if backend_key == BACKEND_QDRANT:
-        print("Ora esegui: py hybrid_rag.py init  (installa qdrant-client e crea le collezioni)")
-        print("Query con filtro: py hybrid_rag.py query '...' --filter 'year>=2020,source_db=eric'")
+        print("Ora esegui: python hybrid_rag.py init  (installa qdrant-client e crea le collezioni)")
+        print("Query con filtro: python hybrid_rag.py query '...' --filter 'year>=2020,source_db=eric'")
     elif backend_key == BACKEND_LANCE:
-        print("Ora esegui: py hybrid_rag.py init  (installa lancedb e crea le tabelle)")
-        print("Query con filtro: py hybrid_rag.py query '...' --filter 'year>=2020,source_db=eric'")
+        print("Ora esegui: python hybrid_rag.py init  (installa lancedb e crea le tabelle)")
+        print("Query con filtro: python hybrid_rag.py query '...' --filter 'year>=2020,source_db=eric'")
 
 
 # ── CHOOSE MODEL ──────────────────────────────────────────────────────────────
@@ -655,7 +675,7 @@ def op_choose_model(n_papers: Optional[int] = None, model_key: Optional[str] = N
         if has_data and indexed_with and indexed_with != model_key:
             print(f"\nATTENZIONE: il DB contiene documenti indicizzati con '{indexed_with}'.")
             print("Cambiare modello causerà incompatibilità delle dimensioni dei vettori.")
-            print("Soluzione: rm -rf rag_db/ → py hybrid_rag.py init → re-indicizza")
+            print("Soluzione: rimuovi rag_db/ → python hybrid_rag.py init → re-indicizza")
             confirm = input("Vuoi comunque cambiare modello? [s/N] ").strip().lower()
             if confirm != "s":
                 print("Annullato.")
@@ -674,7 +694,7 @@ def op_choose_model(n_papers: Optional[int] = None, model_key: Optional[str] = N
 
 def op_init():
     cfg = _load_config()
-    backend_key = cfg.get("backend", BACKEND_CHROMA)
+    backend_key = cfg.get("backend", BACKEND_QDRANT)
 
     if not _deps_installed(backend_key):
         print(f"Installazione dipendenze per backend '{backend_key}'...")
@@ -754,18 +774,47 @@ def op_index_prisma(json_path: str):
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
+    trusted_export = path.name.lower() in {"eligibility_prisma.json", "extraction_table.json"}
+    from_included_state = False
     if isinstance(data, list):
         papers = data
-    elif isinstance(data, dict) and "fase4" in data:
-        papers = data["fase4"].get("paper_inclusi", [])
+    elif (isinstance(data, dict) and isinstance(data.get("fase4"), dict)
+          and "paper_inclusi" in data["fase4"]):
+        papers = data["fase4"]["paper_inclusi"]
+        from_included_state = True
         print("AVVISO: stai indicizzando da prisma_state.json (dati minimi).")
-        print("Per un RAG di qualità superiore usa: eligibility_prisma.json o screening_prisma.json")
-    elif isinstance(data, dict):
+        print("Per un RAG di qualità superiore usa: eligibility_prisma.json")
+    elif isinstance(data, dict) and all(isinstance(p, dict) for p in data.values()):
         papers = list(data.values())
     else:
-        papers = []
+        raise ValueError("Formato JSON PRISMA non riconosciuto: attesa lista o mappa di paper.")
+
+    if not isinstance(papers, list) or any(
+        not isinstance(p, dict) or not any(p.get(k) for k in ("title", "titolo", "doi", "id"))
+        for p in papers
+    ):
+        raise ValueError("Record PRISMA non valido: atteso un paper con titolo, DOI o ID.")
+    excluded = {"excluded", "exclude", "escluso", "rejected", "reject", "ineligible"}
+    if any(
+        p.get("included") is False
+        or str(p.get("decision", "")).strip().lower() in excluded
+        or str(p.get("status", "")).strip().lower() in excluded
+        for p in papers
+    ):
+        raise ValueError("Il JSON contiene paper esclusi. Usa solo i paper inclusi.")
+    if not (trusted_export or from_included_state or all(p.get("included") is True for p in papers)):
+        raise ValueError(
+            "Provenienza di inclusione non verificabile: usa eligibility_prisma.json "
+            "oppure marca ogni record con included: true."
+        )
 
     if not papers:
+        cfg = _load_config()
+        backend = _get_backend(cfg)
+        backend.delete_ids(
+            COLLECTION_PRISMA,
+            [row["id"] for row in backend.get_all(COLLECTION_PRISMA)],
+        )
         print("Nessun paper trovato nel JSON.")
         return
 
@@ -804,8 +853,10 @@ def op_index_prisma(json_path: str):
             "source_db":   pf(paper, "source_db"),
         })
 
+    stale_ids = {row["id"] for row in backend.get_all(COLLECTION_PRISMA)} - set(ids)
     embeddings = _embed_docs(docs, model_cfg)
     backend.upsert(COLLECTION_PRISMA, docs, embeddings, ids, metas)
+    backend.delete_ids(COLLECTION_PRISMA, list(stale_ids))
 
     cfg["indexed_with"] = cfg.get("model_key", DEFAULT_MODEL_KEY)
     _save_config(cfg)
@@ -836,7 +887,7 @@ def op_index_pdf_folder(folder: str):
     try:
         import fitz
     except ImportError:
-        print("pymupdf non installato. Esegui: py hybrid_rag.py init")
+        print("pymupdf non installato. Esegui: python hybrid_rag.py init")
         sys.exit(1)
 
     folder_path = Path(folder)
@@ -955,7 +1006,7 @@ def op_query(
     model_cfg  = _active_model_cfg(cfg)
     query_emb  = _embed_query(query, model_cfg)
 
-    # Filtro (Qdrant: oggetto Filter; LanceDB: WHERE SQL string; ChromaDB: ignorato)
+    # Filtro (Qdrant: oggetto Filter; LanceDB: WHERE SQL string)
     db_filter = None
     if filter_str:
         if backend.name() == BACKEND_QDRANT:
@@ -963,7 +1014,7 @@ def op_query(
         elif backend.name() == BACKEND_LANCE:
             db_filter = _parse_lance_filter(filter_str)
         else:
-            print("AVVISO: --filter è supportato solo con backend lancedb e qdrant, verrà ignorato.")
+            raise ValueError("--filter è supportato solo con backend lancedb e qdrant.")
 
     # BUG-2 fix: check corpus before any search so we give a clear message
     # regardless of backend (FTS returning [] doesn't distinguish "empty" from "no match")
@@ -971,6 +1022,7 @@ def op_query(
     if total_indexed == 0:
         print("Nessun documento indicizzato. Esegui index-prisma o index-pdf prima.")
         return
+    collections_to_search = [c for c in collections_to_search if backend.count(c) > 0]
 
     # 1. Dense search
     dense_map: dict = {}
@@ -1001,13 +1053,14 @@ def op_query(
         # ChromaDB / Qdrant: BM25 manuale su tutti i documenti
         all_docs = []
         for coll in collections_to_search:
-            all_docs.extend(backend.get_all(coll))
+            all_docs.extend(backend.get_all(coll, db_filter))
         from rank_bm25 import BM25Okapi
         tokenized_corpus = [d["text"].lower().split() for d in all_docs]
-        bm25 = BM25Okapi(tokenized_corpus)
-        bm25_scores = bm25.get_scores(query.lower().split())
+        bm25_scores = (BM25Okapi(tokenized_corpus).get_scores(query.lower().split())
+                       if any(tokenized_corpus) else [0.0] * len(all_docs))
         sparse_ranked = sorted(
-            [(all_docs[i]["id"], float(bm25_scores[i])) for i in range(len(all_docs))],
+            [(all_docs[i]["id"], float(bm25_scores[i])) for i in range(len(all_docs))
+             if float(bm25_scores[i]) > 0.0],
             key=lambda x: x[1], reverse=True,
         )[:n_results * DENSE_FETCH_MULTIPLIER]
         all_docs_map = {d["id"]: d for d in all_docs}
@@ -1085,14 +1138,14 @@ def op_status():
     cfg         = _load_config()
     active_key  = cfg.get("model_key", DEFAULT_MODEL_KEY)
     indexed_key = cfg.get("indexed_with", "—")
-    backend_key = cfg.get("backend", BACKEND_CHROMA)
+    backend_key = cfg.get("backend", BACKEND_QDRANT)
     m = _active_model_cfg(cfg)
 
     try:
         backend = _get_backend(cfg)
         coll_names = backend.list_collections()
     except Exception as e:
-        print(f"Errore apertura backend '{backend_key}': {e}\nEsegui prima: py hybrid_rag.py init")
+        print(f"Errore apertura backend '{backend_key}': {e}\nEsegui prima: python hybrid_rag.py init")
         return
 
     lines = [
@@ -1115,7 +1168,7 @@ def op_status():
 
     if backend_key in (BACKEND_QDRANT, BACKEND_LANCE):
         lines.append("")
-        lines.append("Filtri disponibili: `py hybrid_rag.py query '...' --filter 'year>=2020,source_db=eric'`")
+        lines.append("Filtri disponibili: `python hybrid_rag.py query '...' --filter 'year>=2020,source_db=eric'`")
 
     print("\n".join(lines))
 

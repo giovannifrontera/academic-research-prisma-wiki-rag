@@ -5,6 +5,8 @@ description: Protocollo wiki AI Agent v3 — cervello a tre layer, promozione au
 
 # Wiki Core — Protocollo AI Agent v3
 
+Nei comandi, `<PLUGIN_ROOT>` è la directory di installazione del plugin. Usa sempre il `python` dell'ambiente virtuale attivo: funziona sia su Windows sia su Linux.
+
 ## §architettura — Tre layer, un unico cervello
 
 Tutti i layer sono indicizzati nello stesso spazio vettoriale Qdrant. L'agente accede a tutto tramite ricerca semantica — la struttura delle directory è organizzativa, non una barriera.
@@ -75,7 +77,7 @@ Quando il messaggio è classificato come BEHAVIOR_FEEDBACK:
 1. Normalizza la correzione in una frase breve e canonica
 2. Chiama:
    ```bash
-   py scripts/wiki.py behavior-log --workspace <path> --event "<frase canonica>"
+   python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" behavior-log --workspace <path> --event "<frase canonica>"
    ```
 3. Rispondi all'utente confermando la correzione
 4. A fine sessione, esegui §self-reflect
@@ -85,7 +87,7 @@ Quando il messaggio è classificato come BEHAVIOR_FEEDBACK:
 Da eseguire **sempre** a fine sessione se sono stati ricevuti BEHAVIOR_FEEDBACK, oppure se sono state ricevute ≥2 correzioni di qualsiasi tipo:
 
 ```bash
-py scripts/wiki.py self-reflect --workspace <path>
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" self-reflect --workspace <path>
 ```
 
 Legge `.wiki-behavior-log.jsonl`, rileva pattern ricorrenti (≥3 occorrenze), aggiorna autonomamente `wiki/identity/`. Eseguila senza chiedere all'utente. Logga i cambiamenti in `wiki/log.md`.
@@ -105,7 +107,7 @@ Legge `.wiki-behavior-log.jsonl`, rileva pattern ricorrenti (≥3 occorrenze), a
    - Sintesi → `synthesis/<slug>.md.tmp`
 2. Chiama:
    ```bash
-   py scripts/wiki.py ingest \
+   python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" ingest \
      --workspace <path> \
      --pages <p1.tmp,p2.tmp,...> \
      --log "ingest | <titolo>"
@@ -118,7 +120,7 @@ Dopo l'ingest, valuta i criteri §promozione per ogni nuova pagina.
 ## §lint — Workflow LINT
 
 ```bash
-py scripts/wiki.py lint --workspace <path> --full
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" lint --workspace <path> --full
 ```
 
 L'output JSON include `semantic_duplicates`. Gestiscili così:
@@ -135,8 +137,8 @@ Per i broken links e duplicati filename: presenta le opzioni all'utente.
 **Se `<wiki-context>` è presente:** salta i passi 1-3.
 
 **Fallback manuale:**
-1. `py scripts/wiki.py index --workspace <path>`
-2. `py scripts/wiki.py query --workspace <path> --q "<domanda>" --k 5`
+1. `python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" index --workspace <path>`
+2. `python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" query --workspace <path> --q "<domanda>" --k 5`
 3. Leggi le pagine nei risultati
 
 **Sempre:**
@@ -145,7 +147,7 @@ Per i broken links e duplicati filename: presenta le opzioni all'utente.
 
 ## §pdf-inbox — Ingestione PDF
 
-1. `py scripts/wiki.py ingest-pdf --workspace <path> --file <path|url>`
+1. `python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" ingest-pdf --workspace <path> --file <path|url>`
 2. Per ogni path in `deposited`, leggi il file (testo grezzo estratto)
 3. Struttura il testo grezzo in pagine `.tmp` in `wiki-works/<progetto>/`
 4. Chiama `wiki.py ingest`

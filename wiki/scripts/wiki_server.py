@@ -41,6 +41,7 @@ app = FastAPI(docs_url=None, redoc_url=None)
 
 def configure(workspace: str, cfg: dict, no_auth: bool) -> None:
     global _workspace, _cfg, _no_auth, _secret_key, _jwt_secret, _session_days
+    global _embed_model, _embed_model_lock
     import hmac
     _workspace = os.path.abspath(workspace)
     _cfg = cfg
@@ -50,6 +51,8 @@ def configure(workspace: str, cfg: dict, no_auth: bool) -> None:
     # Derive a separate JWT signing secret so it is never the raw login password.
     _jwt_secret = hmac.digest(_secret_key.encode(), b"wiki-jwt-v1", "sha256").hex()
     _session_days = int(frontend.get("session_days", 7))
+    _embed_model = None
+    _embed_model_lock = asyncio.Lock()
     global _server_start
     import time
     _server_start = time.time()
@@ -259,10 +262,7 @@ async def _get_embed_model():
                 _logging.getLogger(_name).setLevel(_logging.ERROR)
             from wiki_embed import _load_model
             model_name = _cfg.get("qdrant", {}).get("embedding_model", "BAAI/bge-m3")
-            loop = asyncio.get_event_loop()
-            _embed_model = await loop.run_in_executor(
-                None, lambda: _load_model(model_name)[0]
-            )
+            _embed_model = await asyncio.to_thread(lambda: _load_model(model_name)[0])
     return _embed_model
 
 
@@ -279,47 +279,24 @@ async def api_context(request: Request, q: str = "", k: int = 3, max_chars: int 
     if not q.strip() or not _QDRANT_IMPORT_OK or not _workspace:
         return PlainTextResponse("", status_code=200)
 
-    import fnmatch as _fnmatch
+    if k < 1 or k > 100 or max_chars < 1 or max_chars > 30000:
+        return PlainTextResponse("Invalid k or max_chars", status_code=400)
+    from wiki_rerank import rank_results
     try:
         model = await _get_embed_model()
-        vector = await asyncio.get_event_loop().run_in_executor(
-            None, lambda: model.encode(q, normalize_embeddings=True).tolist()
+        vector = await asyncio.to_thread(
+            lambda: model.encode(q, normalize_embeddings=True).tolist()
         )
         qdrant_path = os.path.join(_workspace, _cfg.get("qdrant", {}).get("path", "memory/qdrant"))
-        db = _wiki_qdrant.get_db(qdrant_path)
-        raw = _wiki_qdrant.query_similar(db, vector, k=k * 4)
-
-        exclude_patterns = _cfg.get("exclude_from_index", [])
-        seen: dict = {}
-        for r in raw:
-            chunk = r.get("chunk_text") or ""
-            if not chunk:
-                continue
-            path = r["path"]
-            if any(_fnmatch.fnmatch(path, p) for p in exclude_patterns):
-                continue
-            dist = float(r.get("_distance", 1.0))
-            if path not in seen or dist < seen[path]["dist"]:
-                seen[path] = {"dist": dist, "chunk_text": chunk}
-
-        candidates = [{"path": p, **info} for p, info in seen.items()]
-        candidates.sort(key=lambda x: x["dist"])
-
-        rerank_enabled = _cfg.get("qdrant", {}).get("rerank", True)
-        if rerank_enabled and candidates:
+        def retrieve():
+            db = _wiki_qdrant.get_db(qdrant_path)
             try:
-                from wiki_rerank import rerank as _rerank, DEFAULT_MODEL as _RERANK_DEFAULT
-                reranker_model = _cfg.get("qdrant", {}).get("reranker_model", _RERANK_DEFAULT)
-                reranked = await asyncio.get_event_loop().run_in_executor(
-                    None, lambda: _rerank(q, candidates, top_k=k, text_key="chunk_text",
-                                          model_name=reranker_model)
-                )
-                candidates = reranked
-            except Exception as exc:
-                logging.getLogger(__name__).warning("Reranking failed; using vector ranking: %s", exc)
-                candidates = candidates[:k]
-        else:
-            candidates = candidates[:k]
+                return _wiki_qdrant.query_similar(db, vector, k=k * 4)
+            finally:
+                db.close()
+
+        raw = await asyncio.to_thread(retrieve)
+        candidates = await asyncio.to_thread(rank_results, q, raw, _cfg, k)
 
         top = [(c["path"], c) for c in candidates]
 
@@ -357,7 +334,7 @@ async def api_context(request: Request, q: str = "", k: int = 3, max_chars: int 
         if top:
             lines.append(f"Pre-loaded wiki context (top {len(top)} pages by semantic relevance):\n")
             for path, info in top:
-                score = round(1.0 - info["dist"], 3)
+                score = round(1.0 - info["_distance"], 3)
                 lines.append(f"### {path}  [relevance: {score}]")
                 lines.append(info["chunk_text"][:max_chars])
                 lines.append("")
