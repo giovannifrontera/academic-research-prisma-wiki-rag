@@ -5,13 +5,16 @@
 ### AI-powered systematic review, pilot study design, and preprint publication — with persistent knowledge memory
 
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-cc785c?style=flat-square&logo=anthropic&logoColor=white)](https://claude.ai/code)
+[![Release](https://img.shields.io/badge/release-v1.2.0-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.2.0)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![MCP](https://img.shields.io/badge/MCP-6_servers-1a7f37?style=flat-square)](https://modelcontextprotocol.io)
 [![Qdrant](https://img.shields.io/badge/Qdrant-vectors-f4a261?style=flat-square)](https://qdrant.tech)
 [![PRISMA](https://img.shields.io/badge/PRISMA-2020-8b1a1a?style=flat-square)](https://www.prisma-statement.org)
 [![License](https://img.shields.io/badge/License-AGPL_3.0-blue?style=flat-square)](LICENSE)
 
-[Problem](#-the-problem) · [Theory](#-theoretical-framework) · [Pipeline](#-research-pipeline) · [Skills](#-core-skills) · [Wiki Memory](#-wiki-memory-layer) · [MCP Servers](#-academic-mcp-servers) · [Quick Start](#-quick-start) · [Ecosystem](#-ai-wiki-ecosystem)
+[Italiano](README.it.md) · **English**
+
+[Problem](#-the-problem) · [Pipeline](#-research-pipeline) · [Skills](#-core-skills) · [Wiki Memory](#-wiki-memory-layer) · [MCP](#-academic-mcp-servers) · [Install](#-quick-start) · [Operations](#-operations-and-troubleshooting) · [Security](#-data-boundaries-and-security)
 
 </div>
 
@@ -102,7 +105,7 @@ The `wiki_workspace` field in `prisma_state.json` is the bridge between the PRIS
 | **6. Data Extraction** | Structured table: study, n, effect size, RoB, design | Verify extraction matrix |
 
 ### Hybrid RAG — Evidence Synthesis
-Combines **dense retrieval** (BGE-M3 vector embeddings of full-text PDFs) with **sparse BM25 retrieval** for high-recall synthesis. The hybrid approach compensates for semantic drift in technical terminology while maintaining precision on conceptual queries. Outputs a citation-grounded narrative synthesis ready for the Discussion section of a paper.
+Combines **dense retrieval** with **sparse BM25 retrieval**, then merges both rankings through Reciprocal Rank Fusion (RRF). Qdrant is the default local backend; ChromaDB and LanceDB remain optional compatibility backends. The review index is deliberately separate from wiki memory and accepts the pipeline's inclusion-export contracts (`eligibility_prisma.json`, `extraction_table.json`, `fase4.paper_inclusi`, or records explicitly marked `included: true`). Screening files without that filename/shape provenance are rejected, explicit exclusion markers always fail validation, and re-indexing removes studies no longer present.
 
 ### Pilot Study Design
 Generates quasi-experimental study protocols with:
@@ -174,9 +177,11 @@ Knowledge lives in two layers:
 
 ### Technical notes
 - Embedding model: `BAAI/bge-m3` (multilingual, suited for academic text)
+- Second-stage reranker: `BAAI/bge-reranker-v2-m3`, with vector-order fallback if unavailable
 - Vector store: Qdrant (local, no external service required)
 - In-session retrieval: FastAPI server on port 7331, queried by the wiki skill before each major operation
 - The `memory/qdrant/` directory is gitignored and fully rebuildable from the Markdown sources
+- Models automatically use CUDA when the installed PyTorch build and driver expose it; CPU remains a valid, slower fallback
 
 ---
 
@@ -193,7 +198,7 @@ Six MCP servers connect Claude directly to the global academic record:
 | **Zenodo** | Preprints, datasets, Horizon Europe deliverables | Grey literature + datasets |
 | **Semantic Scholar** | Citation graph + semantic similarity | Related work discovery |
 
-Each server implements the [Model Context Protocol](https://modelcontextprotocol.io) specification, exposing search, fetch, and metadata tools that Claude invokes autonomously during pipeline execution.
+Each server implements MCP 1.x and exposes search/fetch tools that Claude invokes during the pipeline. Search tools preserve their human-readable text response by default and accept `output_format="json"` for complete machine-readable records, abstracts and pagination metadata.
 
 ---
 
@@ -251,7 +256,7 @@ Create a virtual environment, activate it, and run `python -m pip install -r "<P
 `CORE_API_KEY` (required for usable CORE rate limits) and
 `SEMANTIC_SCHOLAR_API_KEY` (optional, raises Semantic Scholar rate limits)
 are read from the environment — export them before starting Claude Code.
-See `docs/mcp-setup.md` for details.
+See [Models and setup](docs/models-and-setup.md) for environment and key setup details.
 
 ### 4. Start a review
 
@@ -271,6 +276,77 @@ Claude will:
 7. Produce a hybrid RAG synthesis
 8. Generate a pilot study design if requested
 9. Export the Markdown report to DOCX via Pandoc
+
+### 5. Verify the installation
+
+```bash
+python "<PLUGIN_ROOT>/wiki/scripts/wiki_check_setup.py" --workspace "<W>"
+python "<PLUGIN_ROOT>/wiki/scripts/check_models.py" --workspace "<W>"
+```
+
+On a CUDA workstation, require GPU placement explicitly:
+
+```bash
+python "<PLUGIN_ROOT>/wiki/scripts/check_models.py" --workspace "<W>" --require-cuda
+```
+
+The diagnostic performs a real embedding and reranker inference and reports the Python executable, PyTorch/CUDA build, actual model devices and embedding dimension.
+
+---
+
+## ⚙️ Operations and Troubleshooting
+
+| Symptom | Check | Resolution |
+|---|---|---|
+| Models stay on CPU | `python -c "import torch; print(torch.cuda.is_available(), torch.version.cuda)"` | Install the PyTorch build selected by the official installer for the local OS/driver, then restart Claude from the activated environment |
+| MCP server cannot import a package | `python -c "import sys; print(sys.executable)"` | Activate the same virtual environment before launching Claude Code |
+| Windows accepts `py` but the plugin fails | `where python` in PowerShell | The plugin launches `python`; ensure the environment's `Scripts` directory is first on `PATH` |
+| Index uses old or excluded papers | `python hybrid_rag_template.py status` | Re-run `index-prisma` with the current eligibility export; stale IDs are removed automatically |
+| Wiki result quality is low | inspect `wiki.config.json` and run `rebuild` | Keep BGE-M3 dimension at 1024, enable reranking and rebuild after changing embedding model |
+| Offline model load fails | inspect the Hugging Face cache | Download once online or provide a populated cache; offline mode cannot fetch missing weights |
+| Local Qdrant is locked | check for another process using the same workspace | Stop the other wiki process; do not share one embedded Qdrant directory between concurrent writers |
+
+Windows and Linux share the same Python entry points. Paths must be absolute and quoted; research data stays outside the plugin cache. Detailed commands are in [Python, models and portable paths](docs/models-and-setup.md).
+
+### Test matrix
+
+GitHub Actions runs the Python suite on `ubuntu-latest` and `windows-latest` with Python 3.11 and CPU PyTorch. Local GPU verification is intentionally separate because hosted runners do not expose CUDA. The current regression suite covers wiki workflows, Qdrant retrieval, reranking fallbacks, Hybrid RAG inclusion boundaries and all MCP record formats.
+
+---
+
+## 🔐 Data Boundaries and Security
+
+- The plugin code, wiki workspace and individual review directory are separate locations.
+- `memory/qdrant/`, `rag_db/`, PDFs, extraction tables and credentials are research data and must not be committed.
+- Hybrid RAG accepts only the documented eligibility filename/shape contracts and rejects explicit exclusion markers. Human confirmation remains a required pipeline gate before producing those exports.
+- The wiki HTTP context endpoint accepts loopback callers only. Remote serving requires authentication and deliberate network configuration.
+- `CORE_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY` and GitHub credentials are read from the environment; never add them to plugin manifests or documentation.
+- Every methodological decision remains in the PRISMA state/log files so automated retrieval does not replace the audit trail or human eligibility gate.
+
+---
+
+## 📚 Documentation Map
+
+| Document | Purpose |
+|---|---|
+| [Italian README](README.it.md) | Complete Italian edition of this guide |
+| [Wiki guide](wiki/README.md) / [Italian](wiki/README.it.md) | Wiki workspace, CLI, server and recovery operations |
+| [Models and setup](docs/models-and-setup.md) | Windows/Linux environments, GPU selection and portable paths |
+| [Project specification](docs/PROJECT-SPEC.md) | Canonical research pipeline and state contracts |
+| [Plugin manifest](.claude-plugin/plugin.json) | Published skills and MCP server declarations |
+
+---
+
+## 📦 Release 1.2.0
+
+- Migrated wiki vector memory to embedded Qdrant and added BGE cross-encoder reranking.
+- Corrected Hybrid RAG Qdrant retrieval, pagination, filters, RRF/BM25 behavior and eligibility-only indexing.
+- Added complete JSON MCP responses while retaining the text format.
+- Added real GPU diagnostics and explicit CPU fallback reporting.
+- Hardened Windows locking, Python/path handling and Windows/Linux CI.
+- Reconciled the English and Italian documentation with the actual Claude Code plugin.
+
+See [CHANGELOG.md](CHANGELOG.md) for the release history.
 
 ---
 

@@ -1,5 +1,7 @@
 # Python, models and portable paths
 
+> Release 1.2.0 · [English README](../README.md) · [Guida italiana](../README.it.md)
+
 Use Python 3.11+ and one activated virtual environment for installation, CLI commands and the Claude process that launches the MCP servers. Create the environment outside the installed plugin cache. Replace all example paths with your own absolute paths.
 
 Linux (Bash):
@@ -18,7 +20,16 @@ py -3 -m venv "C:/path/to/research env"
 python -m pip install -r "C:/path/to/plugin/requirements.txt"
 ```
 
-If activation is unavailable, use the environment's absolute Python executable for every command (PowerShell requires `&` before a quoted executable path). Verify `python -c "import sys; print(sys.executable)"` and start Claude from this same terminal. The plugin's MCP configuration invokes `python` from PATH.
+If activation is unavailable, use the environment's absolute Python executable for every command (PowerShell requires `&` before a quoted executable path). Verify `python -c "import sys; print(sys.executable)"` and start Claude from this same terminal. The plugin's MCP configuration invokes `python` from PATH. On Windows, `py` can create the environment but is not the executable used by the plugin.
+
+Optional MCP credentials are read from the process environment:
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `CORE_API_KEY` | Recommended | Practical CORE API rate limits |
+| `SEMANTIC_SCHOLAR_API_KEY` | Optional | Higher Semantic Scholar limits |
+
+Set them before starting Claude. Never put them in the plugin manifest, documentation, or a tracked `.env` file.
 
 ## GPU and model setup
 
