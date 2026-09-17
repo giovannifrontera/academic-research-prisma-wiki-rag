@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import os
 import sys
 from datetime import datetime, timedelta, timezone
@@ -256,11 +257,11 @@ async def _get_embed_model():
             import logging as _logging
             for _name in ("sentence_transformers", "transformers", "huggingface_hub"):
                 _logging.getLogger(_name).setLevel(_logging.ERROR)
-            from sentence_transformers import SentenceTransformer
+            from wiki_embed import _load_model
             model_name = _cfg.get("qdrant", {}).get("embedding_model", "BAAI/bge-m3")
             loop = asyncio.get_event_loop()
             _embed_model = await loop.run_in_executor(
-                None, lambda: SentenceTransformer(model_name, device="cpu")
+                None, lambda: _load_model(model_name)[0]
             )
     return _embed_model
 
@@ -299,7 +300,7 @@ async def api_context(request: Request, q: str = "", k: int = 3, max_chars: int 
                 continue
             dist = float(r.get("_distance", 1.0))
             if path not in seen or dist < seen[path]["dist"]:
-                seen[path] = {"dist": dist, "chunk_text": chunk[:max_chars]}
+                seen[path] = {"dist": dist, "chunk_text": chunk}
 
         candidates = [{"path": p, **info} for p, info in seen.items()]
         candidates.sort(key=lambda x: x["dist"])
@@ -314,10 +315,8 @@ async def api_context(request: Request, q: str = "", k: int = 3, max_chars: int 
                                           model_name=reranker_model)
                 )
                 candidates = reranked
-            except Exception:
-                # ponytail: se il modello reranker non è scaricabile (offline) o
-                # sentence-transformers non è installato, degrada silenziosamente
-                # all'ordinamento per sola similarità vettoriale.
+            except Exception as exc:
+                logging.getLogger(__name__).warning("Reranking failed; using vector ranking: %s", exc)
                 candidates = candidates[:k]
         else:
             candidates = candidates[:k]
@@ -360,7 +359,7 @@ async def api_context(request: Request, q: str = "", k: int = 3, max_chars: int 
             for path, info in top:
                 score = round(1.0 - info["dist"], 3)
                 lines.append(f"### {path}  [relevance: {score}]")
-                lines.append(info["chunk_text"])
+                lines.append(info["chunk_text"][:max_chars])
                 lines.append("")
         lines.append(
             "</wiki-context>\n"
@@ -371,6 +370,7 @@ async def api_context(request: Request, q: str = "", k: int = 3, max_chars: int 
         return PlainTextResponse("\n".join(lines), status_code=200)
 
     except Exception:
+        logging.getLogger(__name__).exception("Wiki context retrieval failed")
         return PlainTextResponse("", status_code=200)
 
 

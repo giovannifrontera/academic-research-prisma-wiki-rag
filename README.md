@@ -145,12 +145,12 @@ wiki/
 │   └── synthesis/                   ← cross-paper syntheses
 ├── concepts/                        ← distilled cross-review knowledge
 ├── synthesis/                       ← promoted cross-project summaries
-├── memory/lancedb/                  ← vector index (gitignored, rebuildable)
+├── memory/qdrant/                   ← vector index (gitignored, rebuildable)
 ├── frontend/index.html              ← D3.js knowledge graph browser
 └── scripts/
     ├── wiki.py                      ← single CLI entry point
     ├── wiki_embed.py                ← text chunking + BGE-M3 embeddings
-    ├── wiki_lancedb.py              ← LanceDB operations
+    ├── wiki_qdrant.py               ← Qdrant operations
     ├── wiki_server.py               ← FastAPI server for in-session retrieval
     ├── wiki_graph.py                ← D3.js graph data export
     └── wiki_workflows.py            ← automated raw/ → index promotion
@@ -178,9 +178,9 @@ Knowledge lives in two layers:
 
 ### Technical notes
 - Embedding model: `BAAI/bge-m3` (multilingual, suited for academic text)
-- Vector store: LanceDB (local, no external service required)
+- Vector store: Qdrant (local, no external service required)
 - In-session retrieval: FastAPI server on port 7331, queried by the wiki skill before each major operation
-- The `memory/lancedb/` directory is gitignored and fully rebuildable from the Markdown sources
+- The `memory/qdrant/` directory is gitignored and fully rebuildable from the Markdown sources
 
 ---
 
@@ -249,7 +249,7 @@ with `claude --plugin-dir .` from inside it. Skills and the six MCP servers
 ### 2. Install wiki dependencies
 
 ```bash
-pip install -r wiki/requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ### 3. Set optional API keys

@@ -748,6 +748,6 @@ AGPL-3.0 — requires anyone who distributes or runs the software as a service t
 
 <div align="center">
 
-Works with [OpenClaw](https://github.com/openclaw/openclaw) · Embeddings by [BAAI/bge-m3](https://huggingface.co/BAAI/bge-m3) · Vector store by [LanceDB](https://lancedb.github.io/lancedb/)
+Works with [OpenClaw](https://github.com/openclaw/openclaw) · Embeddings by [BAAI/bge-m3](https://huggingface.co/BAAI/bge-m3) · Vector store by [Qdrant](https://qdrant.tech/)
 
 </div>

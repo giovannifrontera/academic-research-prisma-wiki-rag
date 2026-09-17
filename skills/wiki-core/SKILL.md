@@ -1,6 +1,6 @@
 ---
 name: wiki-core
-description: Long-term research memory for Claude Code. Persists academic knowledge (papers, syntheses, notes) across sessions in a LanceDB vector index. Use to query existing knowledge before a new PRISMA review, ingest papers and syntheses after a review, and retrieve evidence during pilot study design. Integrates with prisma-review and educational-pilot-design. Trigger whenever the user wants to save, search or consult the research knowledge base.
+description: Long-term research memory for Claude Code. Persists academic knowledge (papers, syntheses, notes) across sessions in a Qdrant vector index. Use to query existing knowledge before a new PRISMA review, ingest papers and syntheses after a review, and retrieve evidence during pilot study design. Integrates with prisma-review and educational-pilot-design. Trigger whenever the user wants to save, search or consult the research knowledge base.
 ---
 
 # Wiki Core — Research Memory
@@ -12,7 +12,7 @@ description: Long-term research memory for Claude Code. Persists academic knowle
 
 ## Architettura
 
-Due layer, un unico indice vettoriale LanceDB:
+Due layer, un unico indice vettoriale Qdrant:
 
 | Layer | Path (relativo al workspace) | Contenuto |
 |---|---|---|
@@ -137,9 +137,9 @@ Output include `semantic_duplicates`:
 
 ## Configurazione workspace
 
-Modifica `wiki/wiki.config.json`:
+Copia il template `wiki/wiki.config.json` nella directory dati e modifica `<W>/wiki.config.json`:
 - `"workspace"` → path assoluto alla directory dati wiki (es. `C:/Users/nome/Documents/wiki-data`)
 - `"projects.ricerca.path"` → sottocartella conoscenza ricerca (default: `wiki-works/ricerca`)
-- `"lancedb.path"` → sottocartella indice vettoriale (default: `memory/lancedb`)
+- `"qdrant.path"` → sottocartella indice vettoriale (default: `memory/qdrant`)
 
 Tutti i path in `wiki.config.json` sono **relativi a `workspace`**.

@@ -54,17 +54,17 @@ Aggiungi al file di configurazione di OpenClaw:
 
 ## Come funziona
 
-Ad ogni prompt, OpenClaw esegue `wiki_context.py` via `before_prompt_build`. Lo script cerca i chunk semanticamente rilevanti in LanceDB e li prepende come blocco `<wiki-context>`.
+Ad ogni prompt, OpenClaw esegue `wiki_context.py` via `before_prompt_build`. Lo script cerca i chunk semanticamente rilevanti in Qdrant e li prepende come blocco `<wiki-context>`.
 
 ## Troubleshooting
 
-### Windows Store Python: `ModuleNotFoundError: No module named 'pyarrow'`
+### Windows: `ModuleNotFoundError` per una dipendenza wiki
 
-Il launcher `py` non trova i pacchetti nativi nel contesto di esecuzione di OpenClaw. Sostituisci con il percorso assoluto:
+OpenClaw sta usando un interprete diverso da quello in cui hai installato le dipendenze. Trova il percorso corretto:
 
 ```bash
 # Trova il percorso corretto
-py -c "import sys; print(sys.executable)"
+python -c "import sys; print(sys.executable)"
 ```
 
 Poi nella config OpenClaw:

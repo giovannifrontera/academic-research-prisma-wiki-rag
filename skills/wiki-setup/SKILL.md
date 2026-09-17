@@ -11,20 +11,18 @@ description: First-time setup of the wiki research memory system for Claude Code
 
 ## Step 1 — Dipendenze Python
 
-```bash
-pip install lancedb sentence-transformers pdfplumber pyyaml fastapi uvicorn watchfiles
-```
+Dalla radice del repository, usa lo stesso interprete per installazione e comandi:
 
-Oppure dalla radice del repo (installa tutto inclusi i componenti PRISMA):
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 ---
 
 ## Step 2 — Configura `wiki/wiki.config.json`
 
-Apri `wiki/wiki.config.json` e imposta:
+Crea la directory dati e copia `wiki/wiki.config.json` al suo interno come
+`<W>/wiki.config.json`. Modifica questa copia e imposta:
 
 ```json
 {
@@ -39,10 +37,10 @@ Il workspace è la **directory dati** dove vivranno i tuoi paper e la tua conosc
 ## Step 3 — Inizializza il sistema
 
 ```bash
-py wiki/scripts/wiki.py rebuild --workspace C:/Users/tuo-nome/Documents/wiki-data
+python wiki/scripts/wiki.py rebuild --workspace C:/Users/tuo-nome/Documents/wiki-data
 ```
 
-Questo crea la struttura delle cartelle e l'indice LanceDB:
+Prepara questa struttura; rebuild indicizza le pagine Markdown già presenti:
 
 ```
 wiki-data/
@@ -54,7 +52,7 @@ wiki-data/
 ├── wiki/                   ← conoscenza distillata cross-progetto
 │   ├── concepts/
 │   └── synthesis/
-└── memory/lancedb/         ← indice vettoriale (non modificare manualmente)
+└── memory/qdrant/          ← indice vettoriale (non modificare manualmente)
 ```
 
 ---
@@ -62,10 +60,10 @@ wiki-data/
 ## Step 4 — Verifica
 
 ```bash
-py wiki/scripts/wiki.py query --workspace C:/Users/tuo-nome/Documents/wiki-data --q "test" --k 1
+python wiki/scripts/wiki.py query --workspace C:/Users/tuo-nome/Documents/wiki-data --q "test" --k 1
 ```
 
-Output atteso: `No results found` — l'indice è vuoto, è corretto.
+Output atteso: JSON con `"status": "ok"` e `"results": []` — l'indice è vuoto, è corretto.
 
 ---
 

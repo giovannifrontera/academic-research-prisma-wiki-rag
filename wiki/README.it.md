@@ -615,6 +615,6 @@ AGPL-3.0 — chiunque distribuisca o esegua il software come servizio deve condi
 
 <div align="center">
 
-Funziona con [OpenClaw](https://github.com/openclaw/openclaw) · Embedding da [BAAI/bge-m3](https://huggingface.co/BAAI/bge-m3) · Vector store da [LanceDB](https://lancedb.github.io/lancedb/)
+Funziona con [OpenClaw](https://github.com/openclaw/openclaw) · Embedding da [BAAI/bge-m3](https://huggingface.co/BAAI/bge-m3) · Vector store da [Qdrant](https://qdrant.tech/)
 
 </div>

@@ -6,7 +6,64 @@ import os
 from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
+import wiki
 from wiki import load_config, ConfigError, acquire_lock, release_lock
+
+
+@pytest.mark.parametrize(("win_error", "expected"), [(5, True), (87, False), (999, True)])
+def test_windows_pid_probe_handles_open_process_errors(monkeypatch, win_error, expected):
+    import ctypes
+
+    class WinFunction:
+        def __init__(self, result):
+            self.result = result
+
+        def __call__(self, *_):
+            return self.result
+
+    kernel32 = type("Kernel32", (), {
+        "OpenProcess": WinFunction(None),
+        "GetExitCodeProcess": WinFunction(False),
+        "CloseHandle": WinFunction(True),
+    })()
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *_args, **_kwargs: kernel32, raising=False)
+    monkeypatch.setattr(ctypes, "get_last_error", lambda: win_error, raising=False)
+    assert wiki._pid_alive_windows(123) is expected
+
+
+def test_pid_probe_uses_windows_safe_probe(monkeypatch):
+    monkeypatch.setattr(wiki.os, "name", "nt")
+    monkeypatch.setattr(wiki, "_pid_alive_windows", lambda pid: pid == 123)
+    monkeypatch.setattr(wiki.os, "kill", lambda *_: pytest.fail("os.kill is unsafe on Windows"))
+    assert wiki._pid_alive(123)
+    assert not wiki._pid_alive(456)
+
+
+def test_pid_probe_preserves_live_process_and_detects_exit():
+    # Isolate the probe: a regression must not terminate pytest itself on Windows.
+    script = """
+import os
+import subprocess
+import sys
+from wiki import _pid_alive
+assert _pid_alive(os.getpid())
+child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])
+try:
+    assert _pid_alive(child.pid)
+    assert child.poll() is None
+finally:
+    child.terminate()
+    child.wait(timeout=10)
+assert not _pid_alive(child.pid)
+print('PID_PROBE_OK')
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=Path(__file__).parent.parent / "scripts",
+        capture_output=True, text=True, timeout=20,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "PID_PROBE_OK"
 
 def test_load_config_ok(tmp_workspace):
     cfg = load_config(str(tmp_workspace / "wiki.config.json"))

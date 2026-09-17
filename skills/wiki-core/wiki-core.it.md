@@ -7,7 +7,7 @@ description: Protocollo wiki AI Agent v3 — cervello a tre layer, promozione au
 
 ## §architettura — Tre layer, un unico cervello
 
-Tutti i layer sono indicizzati nello stesso spazio vettoriale LanceDB. L'agente accede a tutto tramite ricerca semantica — la struttura delle directory è organizzativa, non una barriera.
+Tutti i layer sono indicizzati nello stesso spazio vettoriale Qdrant. L'agente accede a tutto tramite ricerca semantica — la struttura delle directory è organizzativa, non una barriera.
 
 | Layer | Cartella | Contenuto | Chi scrive |
 |-------|----------|-----------|------------|

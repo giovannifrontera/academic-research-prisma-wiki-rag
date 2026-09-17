@@ -21,7 +21,7 @@ def _load_reranker(model_name: str = DEFAULT_MODEL):
     os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
     os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
     from sentence_transformers import CrossEncoder
-    _model = CrossEncoder(model_name, device="cpu")
+    _model = CrossEncoder(model_name)
     _model_name = model_name
     return _model
 
