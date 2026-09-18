@@ -16,6 +16,24 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
+import sys as _sys
+from pathlib import Path as _Path
+_PLUGIN_ROOT = _Path(__file__).resolve().parents[2]
+if str(_PLUGIN_ROOT) not in _sys.path:
+    _sys.path.insert(0, str(_PLUGIN_ROOT))
+from scripts.study_paths import resolve_in_study, containing_study_root, PathEscapeError
+
+
+def _resolve_rag_dir(project=None) -> Path:
+    if project is not None:
+        return resolve_in_study(project, "database/qdrant-rag")
+    return Path.cwd() / RAG_DIR
+
+
+def _collection_pdf_name(project=None) -> str:
+    return "included_pdf_chunks" if project is not None else COLLECTION_PDF
+
+
 # ── Catalogo modelli ──────────────────────────────────────────────────────────
 MODEL_CATALOG = {
     "minilm": {
@@ -1181,25 +1199,30 @@ def main():
     )
     sub = parser.add_subparsers(dest="op")
 
-    sub.add_parser("init", help="Installa dipendenze e inizializza il DB")
+    _project_parent = argparse.ArgumentParser(add_help=False)
+    _project_parent.add_argument("--project", default=None,
+                      help="Percorso del progetto di studio isolato (modalità study)")
 
-    p_cb = sub.add_parser("choose-backend", help="Seleziona backend vettoriale (lancedb / chromadb / qdrant)")
+    sub.add_parser("init", help="Installa dipendenze e inizializza il DB", parents=[_project_parent])
+
+    p_cb = sub.add_parser("choose-backend", help="Seleziona backend vettoriale (lancedb / chromadb / qdrant)",
+                           parents=[_project_parent])
     p_cb.add_argument("--backend", default=None,
                       help="Imposta direttamente senza prompt (lancedb / chromadb / qdrant)")
 
-    p_cm = sub.add_parser("choose-model", help="Seleziona modello embedding")
+    p_cm = sub.add_parser("choose-model", help="Seleziona modello embedding", parents=[_project_parent])
     p_cm.add_argument("--n-papers", type=int, default=None,
                       help="Numero paper previsti — mostra stime tempi/hardware")
     p_cm.add_argument("--model", default=None,
                       help="Imposta direttamente senza prompt (minilm / e5-large / bge-m3)")
 
-    p_ip = sub.add_parser("index-prisma", help="Indicizza paper da JSON PRISMA")
+    p_ip = sub.add_parser("index-prisma", help="Indicizza paper da JSON PRISMA", parents=[_project_parent])
     p_ip.add_argument("json_file", help="Percorso file JSON (eligibility_prisma.json, ecc.)")
 
-    p_ipdf = sub.add_parser("index-pdf", help="Indicizza PDF da cartella")
+    p_ipdf = sub.add_parser("index-pdf", help="Indicizza PDF da cartella", parents=[_project_parent])
     p_ipdf.add_argument("folder", help="Percorso cartella contenente i PDF")
 
-    p_q = sub.add_parser("query", help="Ricerca ibrida nel RAG")
+    p_q = sub.add_parser("query", help="Ricerca ibrida nel RAG", parents=[_project_parent])
     p_q.add_argument("query_text", nargs="+", help="Testo della query")
     p_q.add_argument("--n", type=int, default=5, help="Numero risultati (default 5)")
     p_q.add_argument("--only-prisma", action="store_true", help="Cerca solo in PRISMA papers")
@@ -1207,9 +1230,16 @@ def main():
     p_q.add_argument("--filter", dest="filter_str", default=None,
                      help="Filtro metadati: 'year>=2020,source_db=eric' (backend lancedb e qdrant)")
 
-    sub.add_parser("status", help="Mostra stato DB, modello e backend attivi")
+    sub.add_parser("status", help="Mostra stato DB, modello e backend attivi", parents=[_project_parent])
 
     args = parser.parse_args()
+
+    project = getattr(args, "project", None)
+    if project is not None:
+        global RAG_DIR, CONFIG_FILE, COLLECTION_PDF
+        RAG_DIR = str(_resolve_rag_dir(project=project))
+        CONFIG_FILE = Path(RAG_DIR) / "config.json"
+        COLLECTION_PDF = _collection_pdf_name(project=project)
 
     if args.op == "init":
         op_init()

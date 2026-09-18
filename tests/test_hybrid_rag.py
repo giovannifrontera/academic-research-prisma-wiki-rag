@@ -133,6 +133,27 @@ def test_invalid_filter_fails_closed(rag):
         rag._parse_lance_filter("year>=2020,invalid")
 
 
+def test_rag_dir_resolves_under_study_project(tmp_path, rag):
+    from scripts.study_workspace import create_study
+    result = create_study("My Study", tmp_path)
+    project_root = result["project_root"]
+    rag_dir = rag._resolve_rag_dir(project=project_root)
+    assert str(rag_dir) == str(Path(project_root) / "database" / "qdrant-rag")
+
+
+def test_rag_dir_defaults_to_cwd_rag_db_without_project(tmp_path, monkeypatch, rag):
+    monkeypatch.chdir(tmp_path)
+    rag_dir = rag._resolve_rag_dir(project=None)
+    assert str(rag_dir) == str(tmp_path / "rag_db")
+
+
+def test_collection_pdf_name_switches_in_study_mode(tmp_path, rag):
+    from scripts.study_workspace import create_study
+    result = create_study("My Study", tmp_path)
+    assert rag._collection_pdf_name(project=result["project_root"]) == "included_pdf_chunks"
+    assert rag._collection_pdf_name(project=None) == "pdf_manual"
+
+
 def test_optional_backend_metadata_and_chroma_query(rag):
     from types import SimpleNamespace
 
