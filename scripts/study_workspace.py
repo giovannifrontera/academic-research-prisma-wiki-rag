@@ -181,3 +181,35 @@ def create_study(name: str, parent) -> dict:
         "study_slug": slug,
         "state_file": str(final_root / STATE_FILENAME),
     }
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(prog="study_workspace.py")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    create_p = sub.add_parser("create")
+    create_p.add_argument("--name", required=True)
+    create_p.add_argument("--parent", required=True)
+
+    inspect_p = sub.add_parser("inspect")
+    inspect_p.add_argument("--project", required=True)
+
+    args = parser.parse_args(argv)
+
+    try:
+        if args.command == "create":
+            result = create_study(args.name, args.parent)
+        else:
+            result = read_state(Path(args.project))
+        print(json.dumps(result))
+        return 0
+    except StudyCollisionError as exc:
+        print(json.dumps({"status": "error", "kind": exc.kind}))
+        return 1
+    except (FileNotFoundError, ValueError) as exc:
+        print(json.dumps({"status": "error", "kind": str(exc)}))
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,3 +1,4 @@
+import json
 import pytest
 import uuid
 from scripts.study_workspace import slugify
@@ -110,3 +111,28 @@ def test_create_study_atomic_failure_leaves_no_partial(tmp_path, monkeypatch):
         sw.create_study("My Study", tmp_path)
     assert not (tmp_path / "my-study").exists()
     assert list(tmp_path.iterdir()) == []  # temp dir cleaned up
+
+def test_cli_create(tmp_path, capsys):
+    from scripts.study_workspace import main
+    exit_code = main(["create", "--name", "My Study", "--parent", str(tmp_path)])
+    assert exit_code == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["status"] == "created"
+
+def test_cli_create_collision_reports_error(tmp_path, capsys):
+    from scripts.study_workspace import main
+    (tmp_path / "my-study").mkdir()
+    (tmp_path / "my-study" / "f.txt").write_text("x", encoding="utf-8")
+    exit_code = main(["create", "--name", "My Study", "--parent", str(tmp_path)])
+    assert exit_code != 0
+    out = json.loads(capsys.readouterr().out)
+    assert out == {"status": "error", "kind": "directory_conflict"}
+
+def test_cli_inspect(tmp_path, capsys):
+    from scripts.study_workspace import main
+    main(["create", "--name", "My Study", "--parent", str(tmp_path)])
+    capsys.readouterr()
+    exit_code = main(["inspect", "--project", str(tmp_path / "my-study")])
+    assert exit_code == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["study_slug"] == "my-study"
