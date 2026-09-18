@@ -59,3 +59,54 @@ def test_read_state_invalid_json_raises(tmp_path):
     (d / STATE_FILENAME).write_text("{not json", encoding="utf-8")
     with pytest.raises(ValueError, match="invalid_state"):
         read_state(d)
+
+def test_create_study_new(tmp_path):
+    from scripts.study_workspace import create_study
+    from pathlib import Path
+    result = create_study("My Study", tmp_path)
+    assert result["status"] == "created"
+    root = Path(result["project_root"])
+    assert root == tmp_path / "my-study"
+    assert (root / ".project-state.json").exists()
+    assert (root / "prisma").is_dir()
+    assert (root / "sources" / "pdf-inbox").is_dir()
+    assert (root / "sources" / "pdf-inclusi").is_dir()
+    assert (root / "database" / "qdrant-rag").is_dir()
+    assert (root / "database" / "qdrant-wiki").is_dir()
+    assert (root / "wiki-memory" / "wiki" / "concepts").is_dir()
+    assert (root / "wiki-memory" / "wiki-works" / "my-study" / "raw").is_dir()
+    assert (root / "synthesis").is_dir()
+    assert (root / "design").is_dir()
+    assert (root / "preprint").is_dir()
+    assert (root / "export").is_dir()
+    assert (root / "README.md").exists()
+    assert (root / "project-log.md").exists()
+
+def test_create_study_resumable(tmp_path):
+    from scripts.study_workspace import create_study
+    create_study("My Study", tmp_path)
+    result = create_study("My Study", tmp_path)
+    assert result["status"] == "resumable"
+
+def test_create_study_directory_conflict(tmp_path):
+    from scripts.study_workspace import create_study, StudyCollisionError
+    (tmp_path / "my-study").mkdir()
+    (tmp_path / "my-study" / "unrelated.txt").write_text("x", encoding="utf-8")
+    with pytest.raises(StudyCollisionError, match="directory_conflict"):
+        create_study("My Study", tmp_path)
+
+def test_create_study_empty_dir_initializes(tmp_path):
+    from scripts.study_workspace import create_study
+    (tmp_path / "my-study").mkdir()
+    result = create_study("My Study", tmp_path)
+    assert result["status"] == "created"
+
+def test_create_study_atomic_failure_leaves_no_partial(tmp_path, monkeypatch):
+    from scripts import study_workspace as sw
+    def boom(*a, **kw):
+        raise OSError("disk full simulated")
+    monkeypatch.setattr(sw.os, "rename", boom)
+    with pytest.raises(OSError):
+        sw.create_study("My Study", tmp_path)
+    assert not (tmp_path / "my-study").exists()
+    assert list(tmp_path.iterdir()) == []  # temp dir cleaned up
