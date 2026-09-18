@@ -161,6 +161,34 @@ def create_study(name: str, parent) -> dict:
             encoding="utf-8",
         )
 
+        wiki_config = {
+            "workspace": str(final_root / "wiki-memory"),
+            "projects": {
+                slug: {
+                    "path": f"wiki-works/{slug}",
+                    "keywords": ["paper", "studio", "PRISMA", "articolo", "ricerca",
+                                 "review", "systematic", "pilot"],
+                }
+            },
+            "thresholds": {
+                "index_token_budget": 4000, "staleness_days": 90,
+                "similarity_merge": 0.95, "similarity_orphan": 0.50,
+                "synthesis_min_tokens": 300, "synthesis_min_sources": 2,
+                "chunk_size_tokens": 512, "chunk_overlap_tokens": 64,
+                "page_chunk_threshold_tokens": 1500,
+                "quality_filter_min_score": 6, "dedup_auto": 0.90, "dedup_warn": 0.75,
+            },
+            "qdrant": {
+                "path": str(final_root / "database" / "qdrant-wiki"),
+                "embedding_model": "BAAI/bge-m3",
+                "reranker_model": "BAAI/bge-reranker-v2-m3",
+                "rerank": True,
+            },
+            "exclude_from_index": [],
+        }
+        with open(tmp_root / "wiki-memory" / "wiki.config.json", "w", encoding="utf-8") as f:
+            json.dump(wiki_config, f, indent=2)
+
         state = build_state(name, slug, final_root)
         state_path = tmp_root / STATE_FILENAME
         with open(state_path, "w", encoding="utf-8") as f:

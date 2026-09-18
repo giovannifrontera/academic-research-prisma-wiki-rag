@@ -1,6 +1,7 @@
 import json
 import pytest
 import uuid
+from pathlib import Path
 from scripts.study_workspace import slugify
 
 def test_slugify_basic():
@@ -136,3 +137,15 @@ def test_cli_inspect(tmp_path, capsys):
     assert exit_code == 0
     out = json.loads(capsys.readouterr().out)
     assert out["study_slug"] == "my-study"
+
+def test_create_study_writes_wiki_config(tmp_path):
+    from scripts.study_workspace import create_study
+    result = create_study("My Study", tmp_path)
+    root = Path(result["project_root"])
+    config_path = root / "wiki-memory" / "wiki.config.json"
+    assert config_path.exists()
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    assert config["workspace"] == str(root / "wiki-memory")
+    assert "my-study" in config["projects"]
+    assert config["projects"]["my-study"]["path"] == "wiki-works/my-study"
+    assert config["qdrant"]["path"] == str(root / "database" / "qdrant-wiki")
