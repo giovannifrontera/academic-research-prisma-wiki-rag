@@ -21,6 +21,11 @@ def rag(tmp_path, monkeypatch):
     module._backend_instance._client.close()
 
 
+@pytest.fixture
+def hrt_module(rag):
+    return rag
+
+
 def test_qdrant_dense_sparse_filters_and_empty_match(rag, capsys):
     backend = rag._get_backend()
     backend.upsert(rag.COLLECTION_PRISMA,
@@ -170,3 +175,38 @@ def test_optional_backend_metadata_and_chroma_query(rag):
     assert meta["source_type"] == rag.SOURCE_PDF
     assert meta["chunk_index"] + 1 == 3
     assert meta["page"] == 3
+
+
+def test_query_returns_reranked_results_in_study_mode(tmp_path, hrt_module, monkeypatch):
+    fake_candidates = [
+        {"text": "irrelevant", "score": 0.9},
+        {"text": "highly relevant to query", "score": 0.5},
+    ]
+    monkeypatch.setattr(
+        hrt_module, "_rerank",
+        lambda query_text, candidates, top_k: list(reversed(candidates))[:top_k],
+    )
+    reranked = hrt_module._rerank("some query", fake_candidates, top_k=2)
+    assert reranked[0]["text"] == "highly relevant to query"
+
+
+def test_index_prisma_refuses_without_wiki_export(tmp_path, hrt_module):
+    from scripts.study_workspace import create_study
+    result = create_study("My Study", tmp_path)
+    with pytest.raises(SystemExit):
+        hrt_module.main([
+            "index-prisma", str(Path(result["project_root"]) / "prisma" / "eligibility_prisma.json"),
+            "--project", result["project_root"],
+        ])
+
+
+def test_index_prisma_skip_wiki_export_flag_bypasses_gate(tmp_path, hrt_module):
+    from scripts.study_workspace import create_study
+    result = create_study("My Study", tmp_path)
+    eligibility = Path(result["project_root"]) / "prisma" / "eligibility_prisma.json"
+    eligibility.write_text("[]", encoding="utf-8")
+    hrt_module.main([
+        "index-prisma", str(eligibility),
+        "--project", result["project_root"],
+        "--skip-wiki-export",
+    ])

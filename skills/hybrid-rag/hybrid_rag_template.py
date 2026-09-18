@@ -127,6 +127,36 @@ def _embed_docs(texts: list, model_cfg: dict) -> list:
     prefixed = [prefix + t for t in texts] if prefix else texts
     return enc.encode(prefixed, show_progress_bar=False).tolist()
 
+# ── Reranker (cached, same lazy-load pattern as wiki/scripts/wiki_rerank.py) ──
+
+_reranker_cache: dict = {}
+
+def _get_reranker():
+    if "model" not in _reranker_cache:
+        from sentence_transformers import CrossEncoder
+        _reranker_cache["model"] = CrossEncoder("BAAI/bge-reranker-v2-m3")
+    return _reranker_cache["model"]
+
+
+def _rerank(query_text: str, candidates: list, top_k: int) -> list:
+    if not candidates:
+        return candidates
+    model = _get_reranker()
+    pairs = [(query_text, c.get("text", c.get("chunk_text", ""))) for c in candidates]
+    scores = model.predict(pairs)
+    for c, s in zip(candidates, scores):
+        c["rerank_score"] = float(s)
+    return sorted(candidates, key=lambda c: c["rerank_score"], reverse=True)[:top_k]
+
+
+def _wiki_export_marker_present(project) -> bool:
+    from scripts.study_workspace import read_state
+    state = read_state(project)
+    entities_dir = (Path(project) / state["paths"]["wiki_workspace"]
+                    / "wiki-works" / state["study_slug"] / "entities")
+    return entities_dir.is_dir() and any(entities_dir.glob("*.md"))
+
+
 def _embed_query(text: str, model_cfg: dict) -> list:
     enc = _get_encoder(model_cfg["name"])
     prefix = model_cfg.get("query_prefix", "")
@@ -1104,6 +1134,16 @@ def op_query(
             "collection":  data.get("collection", ""),
         })
 
+    # ponytail: rerank is opt-in (cfg["rerank_enabled"]) and fails open — the
+    # cross-encoder downloads/loads a model on first use, which would otherwise
+    # slow down or break every query call by default; a config-level check
+    # keeps existing callers' behavior unchanged unless they enable it.
+    if cfg.get("rerank_enabled", False) and results:
+        try:
+            results = _rerank(query, results, top_k=n_results)
+        except Exception as exc:
+            print(f"AVVISO: reranking non riuscito, uso ordine RRF: {exc}")
+
     backend_label = f"{backend.name()}"
     if filter_str and db_filter:
         backend_label += f" · filtro: {filter_str}"
@@ -1193,7 +1233,7 @@ def op_status():
 
 # ── MAIN ──────────────────────────────────────────────────────────────────────
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Hybrid RAG — ricerche accademiche (Dense + FTS/BM25 + RRF)"
     )
@@ -1218,9 +1258,13 @@ def main():
 
     p_ip = sub.add_parser("index-prisma", help="Indicizza paper da JSON PRISMA", parents=[_project_parent])
     p_ip.add_argument("json_file", help="Percorso file JSON (eligibility_prisma.json, ecc.)")
+    p_ip.add_argument("--skip-wiki-export", action="store_true",
+                       help="Salta il controllo di export wiki obbligatorio (modalità study)")
 
     p_ipdf = sub.add_parser("index-pdf", help="Indicizza PDF da cartella", parents=[_project_parent])
     p_ipdf.add_argument("folder", help="Percorso cartella contenente i PDF")
+    p_ipdf.add_argument("--skip-wiki-export", action="store_true",
+                         help="Salta il controllo di export wiki obbligatorio (modalità study)")
 
     p_q = sub.add_parser("query", help="Ricerca ibrida nel RAG", parents=[_project_parent])
     p_q.add_argument("query_text", nargs="+", help="Testo della query")
@@ -1232,7 +1276,7 @@ def main():
 
     sub.add_parser("status", help="Mostra stato DB, modello e backend attivi", parents=[_project_parent])
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     project = getattr(args, "project", None)
     if project is not None:
@@ -1240,6 +1284,19 @@ def main():
         RAG_DIR = str(_resolve_rag_dir(project=project))
         CONFIG_FILE = Path(RAG_DIR) / "config.json"
         COLLECTION_PDF = _collection_pdf_name(project=project)
+
+    if args.op in ("index-prisma", "index-pdf") and project is not None \
+            and not getattr(args, "skip_wiki_export", False) \
+            and not _wiki_export_marker_present(project):
+        print(json.dumps({
+            "error": "wiki_export_required",
+            "message": (
+                "Export wiki obbligatorio mancante: nessuna entity page trovata sotto "
+                "wiki-memory/wiki-works/<slug>/entities/. Esegui l'export wiki (vedi "
+                "skills/prisma-review/SKILL.md) oppure passa --skip-wiki-export."
+            ),
+        }))
+        sys.exit(1)
 
     if args.op == "init":
         op_init()
