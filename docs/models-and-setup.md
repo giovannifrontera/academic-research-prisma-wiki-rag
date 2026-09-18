@@ -71,3 +71,48 @@ python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" query --workspace "<W>" --q "researc
 ```
 
 All commands above occupy a single line and work in Bash and PowerShell after substitution and activation. Wiki page paths passed to `--pages` are relative to `<W>`, not the review directory. Copy `wiki/wiki.config.json` from the resolved plugin root to `<W>/wiki.config.json` before configuring your data workspace.
+
+### Sealed study directory layout
+
+A study bootstrapped with `python "<PLUGIN_ROOT>/scripts/study_workspace.py" create --name "<study name>" --parent "<CURRENT_WORKSPACE>"` generates a self-contained study root (`<CURRENT_WORKSPACE>/<study-slug>/`) with this layout (see `docs/superpowers/specs/2026-09-17-isolated-study-workspace-design.md`, "Directory Layout"):
+
+```text
+<CURRENT_WORKSPACE>/
+└── <study-slug>/                         # canonical study root
+    ├── .project-state.json              # master state and isolation contract
+    ├── README.md                        # generated study overview and commands
+    ├── project-log.md                   # append-only orchestration log
+    ├── prisma/
+    │   ├── prisma_state.json
+    │   ├── prisma_log.md
+    │   ├── screening_log.md
+    │   ├── screening_prisma.json
+    │   ├── eligibility_prisma.json
+    │   └── prisma_synthesis.md
+    ├── sources/
+    │   ├── pdf-inbox/
+    │   └── pdf-inclusi/
+    ├── database/
+    │   ├── qdrant-rag/               # PRISMA/Hybrid RAG vector database
+    │   └── qdrant-wiki/              # wiki vector database
+    ├── wiki-memory/                      # private wiki workspace for this study
+    │   ├── wiki.config.json
+    │   ├── wiki-session.md
+    │   ├── wiki/
+    │   │   ├── concepts/
+    │   │   ├── synthesis/
+    │   │   └── identity/
+    │   ├── wiki-works/
+    │   │   └── <study-slug>/
+    │   │       ├── raw/
+    │   │       ├── entities/
+    │   │       ├── concepts/
+    │   │       └── synthesis/
+    │   └── pdf-inbox/
+    ├── synthesis/
+    ├── design/
+    ├── preprint/
+    └── export/
+```
+
+With this layout, all research data (PRISMA files, PDF sources, both vector databases, wiki-memory, synthesis, design, preprint, export) lives under the generated study root — `<REVIEW>` and `<W>` above both resolve inside it (`<study-root>` and `<study-root>/wiki-memory` respectively). Plugin code (`skills/`, `scripts/`, `wiki/`) remains the only external read boundary; it is never a write target for study data.

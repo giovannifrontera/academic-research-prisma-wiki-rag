@@ -32,6 +32,29 @@ Ogni skill è invocata tramite il tool **`Skill`** di Claude Code (es. `Skill("p
 
 ---
 
+## Stage 0 — Bootstrap dello studio isolato
+
+**Quando:** sia il comando esplicito `/pipeline-ricerca nuova` sia un intento in linguaggio naturale ("iniziamo una nuova ricerca", "avviamo un nuovo studio") avviano lo stesso bootstrap, prima di qualunque altra fase.
+
+```bash
+python "<PLUGIN_ROOT>/scripts/study_workspace.py" create --name "<nome studio>" --parent "<CURRENT_WORKSPACE>"
+```
+
+Il comando stampa un JSON con `status` e, sugli esiti positivi, `project_root` (la cartella sigillata dello studio, layout completo in [PROJECT-SPEC.md](../../docs/PROJECT-SPEC.md)). Prima di trattare quel `project_root` come studio attivo, **conferma sempre il path con l'utente** (mostralo esplicitamente, non assumere il default silenziosamente).
+
+Gestione degli esiti:
+
+| `status` | Significato | Reazione della skill |
+|---|---|---|
+| `created` | Nuovo studio inizializzato da zero | Conferma il `project_root` e procedi allo Stage 1 |
+| `resumable` | Esiste già uno studio valido con lo stesso slug (`.project-state.json` coerente) | Chiedi all'utente se vuole riprendere quello studio prima di continuare — non riprendere in automatico |
+| `error` con `kind: "directory_conflict"` | La cartella target esiste e contiene già file non riconducibili a uno studio valido | Mostra l'errore all'utente e fermati: non tentare retry automatici né sovrascritture |
+| `error` con `kind: "unsafe_target"` | Il target è un symlink o altrimenti non sicuro da inizializzare | Mostra l'errore all'utente e fermati: non tentare retry automatici |
+
+Da questo punto in poi tutti i dati dello studio (prisma, sources, database, wiki-memory, synthesis, design, preprint, export) vivono sotto `project_root`; il codice del plugin resta l'unico confine esterno in lettura.
+
+---
+
 ## Stage 1 — `prisma-review`
 
 **Quando:** all'inizio di un progetto, per costruire la base bibliografica.

@@ -244,6 +244,10 @@ Se sì:
 
 > **CWD:** i comandi usano il path assoluto dello script nel plugin risolto; funzionano dalla directory review. `--workspace` identifica la directory dati wiki separata.
 
+Se la directory di lavoro corrente si trova dentro uno studio sigillato (rilevabile tramite `containing_study_root` di `scripts/study_paths.py`, cioè esiste un `.project-state.json` risalendo l'albero), imposta automaticamente `wiki_workspace = <project_root>/wiki-memory` e **non chiedere nulla all'utente** — il workspace wiki è già parte dello studio sigillato.
+
+Altrimenti (nessuno studio sigillato rilevato — flusso legacy invariato):
+
 > "Stai usando il sistema wiki OpenClaw per questa ricerca? Se sì, indica il percorso assoluto della cartella wiki workspace (es. `C:/Users/nome/wiki-data/ricerca` o il path configurato in `wiki.config.json`)"
 
 Se sì:

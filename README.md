@@ -87,7 +87,7 @@ research-state/
   export-manifest.json      # Pandoc pipeline config
 ```
 
-The `wiki_workspace` field in `prisma_state.json` is the bridge between the PRISMA skill and the wiki memory: the PRISMA skill writes to it; the wiki skill reads from it to ingest or query the correct workspace.
+The `wiki_workspace` field in `prisma_state.json` is the bridge between the PRISMA skill and the wiki memory: the PRISMA skill writes to it; the wiki skill reads from it to ingest or query the correct workspace. Inside a sealed study bootstrapped with `study_workspace.py` (see Quick Start below), this is set automatically to `<study-root>/wiki-memory` — no manual path entry is needed.
 
 ---
 
@@ -260,7 +260,13 @@ See [Models and setup](docs/models-and-setup.md) for environment and key setup d
 
 ### 4. Start a review
 
-Open Claude Code in your research project directory and invoke:
+Open Claude Code in your workspace and bootstrap a sealed study — either say "let's start a new review" or invoke `/pipeline-ricerca nuova`; both trigger:
+
+```bash
+python "<PLUGIN_ROOT>/scripts/study_workspace.py" create --name "Spaced repetition review" --parent "<CURRENT_WORKSPACE>"
+```
+
+This creates an isolated `<study-slug>/` study root (layout in [Python, models and portable paths](docs/models-and-setup.md#sealed-study-directory-layout)) with its own `wiki-memory/` — there is no shared/global wiki workspace to configure by hand. Confirm the printed `project_root` with Claude, then start the review from inside it:
 
 ```
 /prisma-review "What is the effect of spaced repetition on long-term retention in higher education?"

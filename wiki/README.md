@@ -119,7 +119,13 @@ python -m pip install -r "C:/path/to/plugin/requirements.txt"
 
 Start Claude from that terminal. The manifest launches `python`, not the Windows-only `py` alias.
 
-Copy `<PLUGIN_ROOT>/wiki/wiki.config.json` to `<W>/wiki.config.json`; keep `<W>` outside the plugin cache. Then run:
+There is no shared/global wiki workspace to hand-configure: each study gets its own sealed `<W>` automatically. Bootstrap a study with `pipeline-ricerca` (`/pipeline-ricerca nuova`, or the natural-language intent "let's start a new research"):
+
+```bash
+python "<PLUGIN_ROOT>/scripts/study_workspace.py" create --name "<study name>" --parent "<CURRENT_WORKSPACE>"
+```
+
+This generates `<CURRENT_WORKSPACE>/<study-slug>/` with `wiki-memory/` already containing a study-scoped `wiki.config.json` — `<W>` below is `<study-root>/wiki-memory`. Confirm the printed `project_root` before using it. Then run:
 
 ```bash
 python "<PLUGIN_ROOT>/wiki/scripts/wiki_check_setup.py" --workspace "<W>"
