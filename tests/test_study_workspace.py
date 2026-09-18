@@ -1,4 +1,5 @@
 import pytest
+import uuid
 from scripts.study_workspace import slugify
 
 def test_slugify_basic():
@@ -25,3 +26,36 @@ def test_slugify_reserved_name_raises():
 def test_slugify_max_length_80():
     long_name = "a" * 200
     assert len(slugify(long_name)) == 80
+
+def test_build_state_shape(tmp_path):
+    from scripts.study_workspace import build_state
+    root = tmp_path / "my-study"
+    state = build_state("My Study", "my-study", root)
+    assert state["schema_version"] == 1
+    assert state["study_name"] == "My Study"
+    assert state["study_slug"] == "my-study"
+    assert state["project_root"] == str(root)
+    assert state["isolation"] == {
+        "mode": "sealed", "allow_external_reads": False, "allow_external_writes": False
+    }
+    assert state["paths"] == {
+        "prisma": "prisma", "sources": "sources", "qdrant": "database/qdrant",
+        "wiki_workspace": "wiki-memory", "synthesis": "synthesis",
+        "design": "design", "preprint": "preprint", "export": "export",
+    }
+    assert state["phases"]["wiki"] == "ready"
+    assert state["phases"]["prisma"] == "not_started"
+    uuid.UUID(state["study_id"])  # valid uuid4, raises if not
+
+def test_read_state_missing_raises(tmp_path):
+    from scripts.study_workspace import read_state
+    with pytest.raises(FileNotFoundError):
+        read_state(tmp_path / "nope")
+
+def test_read_state_invalid_json_raises(tmp_path):
+    from scripts.study_workspace import read_state, STATE_FILENAME
+    d = tmp_path / "study"
+    d.mkdir()
+    (d / STATE_FILENAME).write_text("{not json", encoding="utf-8")
+    with pytest.raises(ValueError, match="invalid_state"):
+        read_state(d)
