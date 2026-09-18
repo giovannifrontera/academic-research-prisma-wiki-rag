@@ -45,7 +45,8 @@ The parent directory is always the current workspace. The workflow does not ask 
     │   ├── pdf-inbox/
     │   └── pdf-inclusi/
     ├── database/
-    │   └── qdrant/                  # the study's only vector database
+    │   ├── qdrant-rag/               # PRISMA/Hybrid RAG vector database
+    │   └── qdrant-wiki/              # wiki vector database
     ├── wiki-memory/                      # private wiki workspace for this study
     │   ├── wiki.config.json
     │   ├── wiki-session.md
@@ -66,18 +67,26 @@ The parent directory is always the current workspace. The workflow does not ask 
     └── export/
 ```
 
-Each study has exactly one embedded Qdrant database at `<study>/database/qdrant/`. RAG and wiki data are isolated logically through collections inside that database:
+Each study has exactly two embedded Qdrant databases, kept physically separate so RAG and wiki operations never contend for the same storage lock:
 
-| Collection | Allowed content | Vector model |
-|---|---|---|
-| `prisma_papers` | Current eligibility export only | Hybrid RAG selected model |
-| `included_pdf_chunks` | Approved included PDFs only | Hybrid RAG selected model |
-| `wiki_pages` | Structured wiki pages from this study | Wiki BGE-M3 model |
-| `staging_wiki_pages` | Temporary wiki ingest staging | Wiki BGE-M3 model |
+| Database | Collection | Allowed content | Vector model |
+|---|---|---|---|
+| `database/qdrant-rag/` | `prisma_papers` | Current eligibility export only | Hybrid RAG selected model |
+| `database/qdrant-rag/` | `included_pdf_chunks` | Approved included PDFs only | Hybrid RAG selected model |
+| `database/qdrant-wiki/` | `wiki_pages` | Structured wiki pages from this study | Wiki BGE-M3 model |
+| `database/qdrant-wiki/` | `staging_wiki_pages` | Temporary wiki ingest staging | Wiki BGE-M3 model |
 
-Qdrant supports a different vector schema per collection, so Hybrid RAG and wiki collections may use different embedding dimensions without requiring separate databases. Collection names are fixed and no collection is shared, globally discovered, or selected from another project.
+Splitting storage this way (instead of one shared database with four collections) means the Hybrid RAG process and the wiki server/CLI can each hold their own embedded Qdrant client open independently — no `database_in_use` coordination is needed between the two subsystems, only within each one. Collection and database names are fixed; no collection is shared, globally discovered, or selected from another project.
 
-Embedded Qdrant permits only one active storage owner reliably across Windows and Linux. Pipeline commands therefore open the study database for one operation and close it deterministically. The optional wiki web server must release/close its client before a Hybrid RAG command runs; if it is actively serving, the pipeline stops with a clear `database_in_use` error instead of opening a second client against the same storage.
+Embedded Qdrant still permits only one active storage owner per individual database directory. Two Hybrid RAG commands (or two wiki commands) must not run concurrently against the same study; that constraint is local to each database and does not cross-block the other subsystem.
+
+### Wiki as the mandatory evidence layer for RAG
+
+The wiki export step (`wiki-ingest` in `pipeline-ricerca`) is **mandatory**, not optional, for every study. Its purpose is not decorative: every paper indexed into `prisma_papers`/`included_pdf_chunks` must also exist as a human-readable Markdown entity page under `wiki-memory/wiki-works/<study-slug>/entities/`, and the review synthesis must exist as a wiki synthesis page. This gives a human reviewer a citable, readable artifact behind every RAG hit — RAG chunks are for retrieval, wiki pages are for verification. `hybrid-rag` `index-prisma`/`index-pdf` refuse to run if the corresponding wiki export for that eligibility snapshot has not been done, unless the researcher explicitly overrides with `--skip-wiki-export` (logged in `project-log.md`).
+
+### Cross-encoder reranking on Hybrid RAG queries
+
+Today only the wiki (`wiki_qdrant.py` / `wiki_rerank.py`) reranks results with `BAAI/bge-reranker-v2-m3`; `hybrid_rag_template.py`'s `query` command returns raw RRF-fused hits with no cross-encoder pass. This is closed: `hybrid-rag query` gains the same cross-encoder rerank step, reusing `BAAI/bge-reranker-v2-m3` (same model, same dependency already required by the wiki), applied to the fused dense+sparse candidate set before returning results. This is on by default for study-mode projects (`--project` given) and configurable via `rag_db/config.json`'s `rerank: true|false`, mirroring the wiki's `wiki.config.json` convention.
 
 ## Canonical State Contract
 
@@ -99,7 +108,8 @@ Embedded Qdrant permits only one active storage owner reliably across Windows an
   "paths": {
     "prisma": "prisma",
     "sources": "sources",
-    "qdrant": "database/qdrant",
+    "qdrant_rag": "database/qdrant-rag",
+    "qdrant_wiki": "database/qdrant-wiki",
     "wiki_workspace": "wiki-memory",
     "synthesis": "synthesis",
     "design": "design",
@@ -162,6 +172,17 @@ Collision behavior:
 - Existing non-empty directory without valid state: stop with `directory_conflict`; never merge or overwrite.
 - Existing symlink, junction or reparse-point target: stop with `unsafe_target`.
 
+## Automatic Full-Text Acquisition
+
+Today the automated database search (`core`, `doaj`, `eric`, `openaire`, `zenodo`, `semantic-scholar` MCP servers) only returns abstracts/metadata; no full text is fetched, and only manually supplied PDFs (Stream 2, `pdf_manuali/`) are ever stored as a complete document. This changes: when a search record exposes a resolvable open-access full-text URL (e.g. CORE's `sourceFulltextUrls`, OpenAIRE's OA links, DOAJ/Zenodo download links), the pipeline downloads it automatically and stores it as the source-of-record copy.
+
+- New download happens during Stream 1 (automated search), right after a record is retained post-deduplication, not only after eligibility — so a reviewer screening on full text has it available, closing part of the "solo abstract" limitation documented in `prisma-review`.
+- Downloads land in `<study>/sources/pdf-inbox/`, named by a stable id (DOI-derived slug or source id), and the local path is recorded back onto the record (`local_pdf_path` field) so later stages (screening, eligibility, `hybrid-rag index-pdf`) can find it without re-downloading.
+- On eligibility inclusion, the file already in `pdf-inbox/` is copied (not re-downloaded) into `sources/pdf-inclusi/`, same as the existing manual-PDF flow.
+- Download guards (new — no prior implementation exists despite earlier prose assuming one): HTTPS-only, resolve the URL's host and reject private/loopback/link-local IP ranges before connecting (SSRF guard), enforce a maximum response size (streamed, abort over limit), verify `Content-Type` is a PDF-like type before treating the body as one, and never follow a redirect to a host that fails the same guard.
+- A failed or skipped download (paywalled, guard rejection, timeout) is not an error: the record keeps `local_pdf_path: null` and screening/eligibility proceed on the abstract exactly as today. This is a best-effort enrichment, not a new required gate.
+- This applies per study, inside the sealed `sources/pdf-inbox/`; it never writes outside `project_root`.
+
 ## Isolation Enforcement
 
 Isolation must be enforced in executable code, not only in skill instructions.
@@ -192,23 +213,27 @@ The plugin installation directory is the only allowed external read boundary, an
 - Reads/writes all state under `<study>/prisma/`.
 - Sets `wiki_workspace` from `.project-state.json`; it no longer asks for an arbitrary path.
 - Imports PDFs into `<study>/sources/` before processing.
+- During Stream 1, auto-downloads full text into `sources/pdf-inbox/` when a record exposes a guard-passing open-access URL (see "Automatic Full-Text Acquisition"); silently keeps `local_pdf_path: null` otherwise.
 - Exports wiki pages only to the private `<study>/wiki-memory/` workspace.
 
 ### Hybrid RAG
 
 - Stops deriving storage solely from the process current directory.
-- Uses Qdrant for sealed workspaces and accepts an explicit project/state argument resolved to the shared `<study>/database/qdrant/`.
-- Writes only `prisma_papers` and `included_pdf_chunks`; it never reads, clears or rebuilds wiki collections.
+- Accepts an explicit project/state argument resolved to `<study>/database/qdrant-rag/`, its own database, independent of the wiki's.
+- Writes only `prisma_papers` and `included_pdf_chunks`; it never opens or touches `qdrant-wiki`.
 - Accepts eligibility input only from `<study>/prisma/` and included PDFs only from `<study>/sources/pdf-inclusi/`.
 - Preserves current inclusion-contract validation and stale-record deletion.
+- Query results are reranked with the cross-encoder (`BAAI/bge-reranker-v2-m3`) before being returned, by default in study mode.
+- Refuses `index-prisma`/`index-pdf` when the mandatory wiki export for the current eligibility snapshot is missing, unless `--skip-wiki-export` is passed (logged in `project-log.md`).
 
 ### Wiki
 
 - `wiki_workspace` is always `<study>/wiki-memory/`.
-- Generated `wiki.config.json` contains the absolute private workspace, the canonical `<study>/database/qdrant/` path and one project keyed by the study slug.
+- Generated `wiki.config.json` points `qdrant.path` at `<study>/database/qdrant-wiki/`, its own database, independent of Hybrid RAG's, and contains one project keyed by the study slug.
 - Wiki operations use only `wiki_pages` and `staging_wiki_pages`; rebuild never deletes evidence collections.
 - Setup, query, ingest, rebuild and server commands validate containment against the master state when invoked through the research pipeline.
 - No automatic query of an older/shared wiki is permitted.
+- Wiki export of paper entities and the review synthesis is mandatory (not optional) before Hybrid RAG indexing, so every RAG-indexed paper has a human-readable, citable wiki page behind it.
 
 ### Pilot, Preprint and Export
 
@@ -256,14 +281,17 @@ No shared-memory import/export feature is included. If cross-study reuse is late
 - New creation, empty-directory initialization, resumable study and unsafe collision.
 - Atomic failure leaves no valid final project.
 - Relative path resolution and rejection of `..`, absolute external paths, symlink escape and Windows-style traversal.
-- Generated state/config values, one Qdrant path and four non-overlapping collection names.
+- Generated state/config values, two distinct Qdrant paths (`qdrant-rag`, `qdrant-wiki`) and four non-overlapping collection names split across them.
 
 ### Integration tests
 
 - Natural-language and explicit skill instructions route to the same bootstrap command.
 - PRISMA writes only under `prisma/`.
-- Hybrid RAG cannot index a sibling study's eligibility file or open its Qdrant directory.
-- Wiki query/ingest cannot open a sibling wiki.
+- Hybrid RAG cannot index a sibling study's eligibility file or open its `qdrant-rag` directory, and never opens `qdrant-wiki`.
+- Wiki query/ingest cannot open a sibling wiki, and never opens `qdrant-rag`.
+- Hybrid RAG and wiki commands can run back-to-back (or concurrently) against the same study without a `database_in_use` error, since each owns its own Qdrant directory.
+- `hybrid-rag index-prisma`/`index-pdf` refuses to run when the mandatory wiki export is missing, and proceeds when `--skip-wiki-export` is passed.
+- `hybrid-rag query` results come back reranked (cross-encoder score present) in study mode.
 - PDF import copies into the current study before processing.
 - Pilot, preprint and DOCX output remain inside the study.
 - Resuming a valid study preserves all existing files.
@@ -286,11 +314,13 @@ The feature is complete when:
 
 1. A user can start with either supported intent, provide only a name, confirm, and receive `<CURRENT_WORKSPACE>/<slug>/`.
 2. The generated directory contains valid master state, private wiki configuration and the complete documented structure.
-3. Each study has one Qdrant path, and a second study in the same parent workspace resolves to a different Qdrant directory.
+3. Each study has two independent Qdrant paths (`qdrant-rag`, `qdrant-wiki`), and a second study in the same parent workspace resolves to different directories for both.
 4. Attempts to read or write a sibling study through managed pipeline commands fail closed.
 5. Existing valid studies resume without overwrite; unrelated existing directories are untouched.
-6. Windows and Ubuntu CI pass bootstrap, containment and resume tests.
-7. Documentation in both languages matches the implemented layout and commands.
+6. Every RAG-indexed paper has a corresponding human-readable wiki entity page; `hybrid-rag query` returns cross-encoder-reranked results.
+7. A search record with a guard-passing open-access full-text URL is auto-downloaded into `sources/pdf-inbox/` during Stream 1, with `local_pdf_path` set on the record; a record without one, or one that fails the SSRF/size/content-type guard, proceeds abstract-only with no error.
+8. Windows and Ubuntu CI pass bootstrap, containment and resume tests.
+9. Documentation in both languages matches the implemented layout and commands.
 
 ## Explicit Non-Goals
 
