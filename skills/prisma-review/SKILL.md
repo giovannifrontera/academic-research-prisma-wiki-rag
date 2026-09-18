@@ -455,6 +455,7 @@ Scrivi `prisma_screening.py` nella cartella di lavoro. Lo script deve:
 2. Normalizzare verso: `title`, `doi`, `year`, `abstract`, `authors`, `source_db`.
 3. Deduplicare per DOI (lowercase) e poi per titolo normalizzato (alfanumerico, lowercase).
 4. Applicare i filtri concordati (anno, lingua, tipo pub.).
+4bis. Se lo studio è sigillato (vedi `.project-state.json`, `paths.sources`), chiamare `enrich_records_with_fulltext(records, Path(paths["sources"]) / "pdf-inbox")` da `skills/prisma-review/scripts/fetch_fulltext.py` sulla lista deduplicata, subito dopo la deduplicazione cross-stream e prima del salvataggio in `screening_prisma.json`. Per ogni record con un campo `fulltext_url` che supera il guard SSRF/dimensione/content-type, il PDF viene scaricato in `sources/pdf-inbox/` e il percorso locale scritto in `record["local_pdf_path"]`; altrimenti `local_pdf_path` resta `None` e il record prosegue solo con l'abstract, senza errori. Questo campo `local_pdf_path` viaggia poi dentro `screening_prisma.json` e, in caso di inclusione in eligibility, il file viene copiato (non riscaricato) in `sources/pdf-inclusi/`.
 5. Salvare in `screening_prisma.json`.
 6. Stampare il riepilogo numerico.
 
