@@ -190,6 +190,37 @@ def test_query_returns_reranked_results_in_study_mode(tmp_path, hrt_module, monk
     assert reranked[0]["text"] == "highly relevant to query"
 
 
+def test_op_query_reranks_by_default_when_project_given(tmp_path, rag, monkeypatch):
+    from types import SimpleNamespace
+    from scripts.study_workspace import create_study
+
+    result = create_study("My Study", tmp_path)
+    project_root = result["project_root"]
+
+    backend = SimpleNamespace(
+        _client=SimpleNamespace(close=lambda: None),
+        count=lambda _: 1,
+        search=lambda *_: [
+            {"id": "a", "text": "alpha", "meta": {}, "score": 0.9, "collection": "papers"},
+        ],
+        get_all=lambda *_: [
+            {"id": "a", "text": "alpha", "meta": {}, "collection": "papers"},
+        ],
+        name=lambda: "fake",
+    )
+    monkeypatch.setattr(rag, "_backend_instance", backend)
+
+    calls = []
+
+    def fake_rerank(query_text, candidates, top_k):
+        calls.append((query_text, top_k))
+        return candidates
+
+    monkeypatch.setattr(rag, "_rerank", fake_rerank)
+    rag.op_query("some query", n_results=1, use_pdf=False, project=project_root)
+    assert calls, "_rerank should be invoked by default when project is set (study mode)"
+
+
 def test_index_prisma_refuses_without_wiki_export(tmp_path, hrt_module):
     from scripts.study_workspace import create_study
     result = create_study("My Study", tmp_path)

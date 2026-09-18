@@ -1032,6 +1032,7 @@ def op_query(
     use_prisma: bool = True,
     use_pdf: bool = True,
     filter_str: Optional[str] = None,
+    project: Optional[str] = None,
 ):
     collections_to_search = []
     if use_prisma:
@@ -1134,11 +1135,11 @@ def op_query(
             "collection":  data.get("collection", ""),
         })
 
-    # ponytail: rerank is opt-in (cfg["rerank_enabled"]) and fails open — the
-    # cross-encoder downloads/loads a model on first use, which would otherwise
-    # slow down or break every query call by default; a config-level check
-    # keeps existing callers' behavior unchanged unless they enable it.
-    if cfg.get("rerank_enabled", False) and results:
+    # ponytail: rerank defaults on in study mode (project given) per spec, off
+    # otherwise (no project) to avoid slowing down non-study callers by
+    # default; cfg["rerank_enabled"] still overrides explicitly either way.
+    rerank_default = project is not None
+    if cfg.get("rerank_enabled", rerank_default) and results:
         try:
             results = _rerank(query, results, top_k=n_results)
         except Exception as exc:
@@ -1315,6 +1316,7 @@ def main(argv=None):
             use_prisma=not args.only_pdf,
             use_pdf=not args.only_prisma,
             filter_str=args.filter_str,
+            project=args.project,
         )
     elif args.op == "status":
         op_status()
