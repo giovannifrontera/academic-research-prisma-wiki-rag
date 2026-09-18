@@ -46,8 +46,10 @@ def download_fulltext(url: str, dest_dir: Path, record_id: str,
     dest_path = dest_dir / f"{_slugify_record_id(record_id)}.pdf"
     try:
         with requests.get(url, stream=True, timeout=_TIMEOUT_S,
-                           allow_redirects=True) as resp:
+                           allow_redirects=False) as resp:
             resp.raise_for_status()
+            if 300 <= resp.status_code < 400:
+                return None
             content_type = resp.headers.get("Content-Type", "")
             if "pdf" not in content_type.lower():
                 return None
