@@ -204,6 +204,51 @@ def write_state(path: str, data: dict) -> None:
 └── .gitignore                           ← creato da pipeline-regista all'init (vedi §5.3)
 ```
 
+### 3.1b Layout sigillato per studio isolato (`study_workspace.py create`)
+
+Ogni nuovo studio nasce tramite `python scripts/study_workspace.py create --name "<nome>" --parent "<workspace corrente>"`, che genera una cartella `<study-slug>/` sigillata sotto il workspace indicato, con questo layout (vedi `docs/superpowers/specs/2026-09-17-isolated-study-workspace-design.md`, sezione "Directory Layout"):
+
+```text
+<CURRENT_WORKSPACE>/
+└── <study-slug>/                         # study root canonico
+    ├── .project-state.json              # master state e contratto di isolamento
+    ├── README.md                        # overview generato + comandi
+    ├── project-log.md                   # log di orchestrazione append-only
+    ├── prisma/
+    │   ├── prisma_state.json
+    │   ├── prisma_log.md
+    │   ├── screening_log.md
+    │   ├── screening_prisma.json
+    │   ├── eligibility_prisma.json
+    │   └── prisma_synthesis.md
+    ├── sources/
+    │   ├── pdf-inbox/
+    │   └── pdf-inclusi/
+    ├── database/
+    │   ├── qdrant-rag/               # database vettoriale PRISMA/Hybrid RAG
+    │   └── qdrant-wiki/              # database vettoriale wiki
+    ├── wiki-memory/                      # wiki workspace privato di questo studio
+    │   ├── wiki.config.json
+    │   ├── wiki-session.md
+    │   ├── wiki/
+    │   │   ├── concepts/
+    │   │   ├── synthesis/
+    │   │   └── identity/
+    │   ├── wiki-works/
+    │   │   └── <study-slug>/
+    │   │       ├── raw/
+    │   │       ├── entities/
+    │   │       ├── concepts/
+    │   │       └── synthesis/
+    │   └── pdf-inbox/
+    ├── synthesis/
+    ├── design/
+    ├── preprint/
+    └── export/
+```
+
+Tutti i dati della ricerca (PRISMA, sorgenti PDF, database vettoriali, wiki-memory, sintesi, design, preprint, export) restano sotto lo study root generato: il codice del plugin (`skills/`, `scripts/`, `wiki/`) è l'unico confine esterno in lettura, mai un percorso di scrittura per dati di studio. Questo layout coesiste con il flat layout descritto in §3.1 (usato quando `prisma-review` opera senza bootstrap dello studio); il layout sigillato è quello raccomandato per ogni nuovo studio a partire da questa versione.
+
 ### 3.2 Master State File (.project-state.json)
 
 ```json

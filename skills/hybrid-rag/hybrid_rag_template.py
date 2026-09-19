@@ -16,6 +16,24 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
+import sys as _sys
+from pathlib import Path as _Path
+_PLUGIN_ROOT = _Path(__file__).resolve().parents[2]
+if str(_PLUGIN_ROOT) not in _sys.path:
+    _sys.path.insert(0, str(_PLUGIN_ROOT))
+from scripts.study_paths import resolve_in_study, containing_study_root, PathEscapeError
+
+
+def _resolve_rag_dir(project=None) -> Path:
+    if project is not None:
+        return resolve_in_study(project, "database/qdrant-rag")
+    return Path.cwd() / RAG_DIR
+
+
+def _collection_pdf_name(project=None) -> str:
+    return "included_pdf_chunks" if project is not None else COLLECTION_PDF
+
+
 # ── Catalogo modelli ──────────────────────────────────────────────────────────
 MODEL_CATALOG = {
     "minilm": {
@@ -108,6 +126,36 @@ def _embed_docs(texts: list, model_cfg: dict) -> list:
     prefix = model_cfg.get("doc_prefix", "")
     prefixed = [prefix + t for t in texts] if prefix else texts
     return enc.encode(prefixed, show_progress_bar=False).tolist()
+
+# ── Reranker (cached, same lazy-load pattern as wiki/scripts/wiki_rerank.py) ──
+
+_reranker_cache: dict = {}
+
+def _get_reranker():
+    if "model" not in _reranker_cache:
+        from sentence_transformers import CrossEncoder
+        _reranker_cache["model"] = CrossEncoder("BAAI/bge-reranker-v2-m3")
+    return _reranker_cache["model"]
+
+
+def _rerank(query_text: str, candidates: list, top_k: int) -> list:
+    if not candidates:
+        return candidates
+    model = _get_reranker()
+    pairs = [(query_text, c.get("text", c.get("chunk_text", ""))) for c in candidates]
+    scores = model.predict(pairs)
+    for c, s in zip(candidates, scores):
+        c["rerank_score"] = float(s)
+    return sorted(candidates, key=lambda c: c["rerank_score"], reverse=True)[:top_k]
+
+
+def _wiki_export_marker_present(project) -> bool:
+    from scripts.study_workspace import read_state
+    state = read_state(project)
+    entities_dir = (Path(project) / state["paths"]["wiki_workspace"]
+                    / "wiki-works" / state["study_slug"] / "entities")
+    return entities_dir.is_dir() and any(entities_dir.glob("*.md"))
+
 
 def _embed_query(text: str, model_cfg: dict) -> list:
     enc = _get_encoder(model_cfg["name"])
@@ -984,6 +1032,7 @@ def op_query(
     use_prisma: bool = True,
     use_pdf: bool = True,
     filter_str: Optional[str] = None,
+    project: Optional[str] = None,
 ):
     collections_to_search = []
     if use_prisma:
@@ -1086,6 +1135,16 @@ def op_query(
             "collection":  data.get("collection", ""),
         })
 
+    # ponytail: rerank defaults on in study mode (project given) per spec, off
+    # otherwise (no project) to avoid slowing down non-study callers by
+    # default; cfg["rerank_enabled"] still overrides explicitly either way.
+    rerank_default = project is not None
+    if cfg.get("rerank_enabled", rerank_default) and results:
+        try:
+            results = _rerank(query, results, top_k=n_results)
+        except Exception as exc:
+            print(f"AVVISO: reranking non riuscito, uso ordine RRF: {exc}")
+
     backend_label = f"{backend.name()}"
     if filter_str and db_filter:
         backend_label += f" · filtro: {filter_str}"
@@ -1175,31 +1234,40 @@ def op_status():
 
 # ── MAIN ──────────────────────────────────────────────────────────────────────
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Hybrid RAG — ricerche accademiche (Dense + FTS/BM25 + RRF)"
     )
     sub = parser.add_subparsers(dest="op")
 
-    sub.add_parser("init", help="Installa dipendenze e inizializza il DB")
+    _project_parent = argparse.ArgumentParser(add_help=False)
+    _project_parent.add_argument("--project", default=None,
+                      help="Percorso del progetto di studio isolato (modalità study)")
 
-    p_cb = sub.add_parser("choose-backend", help="Seleziona backend vettoriale (lancedb / chromadb / qdrant)")
+    sub.add_parser("init", help="Installa dipendenze e inizializza il DB", parents=[_project_parent])
+
+    p_cb = sub.add_parser("choose-backend", help="Seleziona backend vettoriale (lancedb / chromadb / qdrant)",
+                           parents=[_project_parent])
     p_cb.add_argument("--backend", default=None,
                       help="Imposta direttamente senza prompt (lancedb / chromadb / qdrant)")
 
-    p_cm = sub.add_parser("choose-model", help="Seleziona modello embedding")
+    p_cm = sub.add_parser("choose-model", help="Seleziona modello embedding", parents=[_project_parent])
     p_cm.add_argument("--n-papers", type=int, default=None,
                       help="Numero paper previsti — mostra stime tempi/hardware")
     p_cm.add_argument("--model", default=None,
                       help="Imposta direttamente senza prompt (minilm / e5-large / bge-m3)")
 
-    p_ip = sub.add_parser("index-prisma", help="Indicizza paper da JSON PRISMA")
+    p_ip = sub.add_parser("index-prisma", help="Indicizza paper da JSON PRISMA", parents=[_project_parent])
     p_ip.add_argument("json_file", help="Percorso file JSON (eligibility_prisma.json, ecc.)")
+    p_ip.add_argument("--skip-wiki-export", action="store_true",
+                       help="Salta il controllo di export wiki obbligatorio (modalità study)")
 
-    p_ipdf = sub.add_parser("index-pdf", help="Indicizza PDF da cartella")
+    p_ipdf = sub.add_parser("index-pdf", help="Indicizza PDF da cartella", parents=[_project_parent])
     p_ipdf.add_argument("folder", help="Percorso cartella contenente i PDF")
+    p_ipdf.add_argument("--skip-wiki-export", action="store_true",
+                         help="Salta il controllo di export wiki obbligatorio (modalità study)")
 
-    p_q = sub.add_parser("query", help="Ricerca ibrida nel RAG")
+    p_q = sub.add_parser("query", help="Ricerca ibrida nel RAG", parents=[_project_parent])
     p_q.add_argument("query_text", nargs="+", help="Testo della query")
     p_q.add_argument("--n", type=int, default=5, help="Numero risultati (default 5)")
     p_q.add_argument("--only-prisma", action="store_true", help="Cerca solo in PRISMA papers")
@@ -1207,9 +1275,29 @@ def main():
     p_q.add_argument("--filter", dest="filter_str", default=None,
                      help="Filtro metadati: 'year>=2020,source_db=eric' (backend lancedb e qdrant)")
 
-    sub.add_parser("status", help="Mostra stato DB, modello e backend attivi")
+    sub.add_parser("status", help="Mostra stato DB, modello e backend attivi", parents=[_project_parent])
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+
+    project = getattr(args, "project", None)
+    if project is not None:
+        global RAG_DIR, CONFIG_FILE, COLLECTION_PDF
+        RAG_DIR = str(_resolve_rag_dir(project=project))
+        CONFIG_FILE = Path(RAG_DIR) / "config.json"
+        COLLECTION_PDF = _collection_pdf_name(project=project)
+
+    if args.op in ("index-prisma", "index-pdf") and project is not None \
+            and not getattr(args, "skip_wiki_export", False) \
+            and not _wiki_export_marker_present(project):
+        print(json.dumps({
+            "error": "wiki_export_required",
+            "message": (
+                "Export wiki obbligatorio mancante: nessuna entity page trovata sotto "
+                "wiki-memory/wiki-works/<slug>/entities/. Esegui l'export wiki (vedi "
+                "skills/prisma-review/SKILL.md) oppure passa --skip-wiki-export."
+            ),
+        }))
+        sys.exit(1)
 
     if args.op == "init":
         op_init()
@@ -1228,6 +1316,7 @@ def main():
             use_prisma=not args.only_pdf,
             use_pdf=not args.only_prisma,
             filter_str=args.filter_str,
+            project=args.project,
         )
     elif args.op == "status":
         op_status()

@@ -7,7 +7,7 @@
   "repository": "https://github.com/giovannifrontera/academic-research-prisma-wiki-rag",
   "license": "AGPL-3.0",
   "keywords": ["prisma", "systematic-review", "academic-research", "rag"],
-  "defaultEnabled": false,
+  "defaultEnabled": true,
   "skills": "./skills/",
   "mcpServers": {
     "eric": {

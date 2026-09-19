@@ -119,7 +119,13 @@ python -m pip install -r "C:/percorso/plugin/requirements.txt"
 
 Avvia Claude dallo stesso terminale. Il manifest usa `python`, non l'alias Windows `py`.
 
-Copia `<PLUGIN_ROOT>/wiki/wiki.config.json` in `<W>/wiki.config.json`; mantieni `<W>` fuori dalla cache del plugin. Poi esegui:
+Non esiste più un workspace wiki condiviso/globale da configurare a mano: ogni studio riceve automaticamente il proprio `<W>` sigillato. Avvia uno studio con `pipeline-ricerca` (`/pipeline-ricerca nuova`, oppure l'intento in linguaggio naturale "iniziamo una nuova ricerca"):
+
+```bash
+python "<PLUGIN_ROOT>/scripts/study_workspace.py" create --name "<nome studio>" --parent "<CURRENT_WORKSPACE>"
+```
+
+Questo genera `<CURRENT_WORKSPACE>/<study-slug>/` con `wiki-memory/` già contenente un `wiki.config.json` specifico dello studio — `<W>` qui sotto è `<study-root>/wiki-memory`. Conferma il `project_root` stampato prima di usarlo. Poi esegui:
 
 ```bash
 python "<PLUGIN_ROOT>/wiki/scripts/wiki_check_setup.py" --workspace "<W>"

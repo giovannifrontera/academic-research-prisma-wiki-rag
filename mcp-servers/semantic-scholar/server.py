@@ -13,9 +13,9 @@ import urllib.request
 import urllib.parse
 import urllib.error
 import os
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
-mcp = FastMCP("semantic-scholar")
+mcp = MCPServer("semantic-scholar")
 
 BASE_URL = "https://api.semanticscholar.org/graph/v1"
 DEFAULT_TIMEOUT = 30

@@ -21,6 +21,11 @@ def rag(tmp_path, monkeypatch):
     module._backend_instance._client.close()
 
 
+@pytest.fixture
+def hrt_module(rag):
+    return rag
+
+
 def test_qdrant_dense_sparse_filters_and_empty_match(rag, capsys):
     backend = rag._get_backend()
     backend.upsert(rag.COLLECTION_PRISMA,
@@ -133,6 +138,27 @@ def test_invalid_filter_fails_closed(rag):
         rag._parse_lance_filter("year>=2020,invalid")
 
 
+def test_rag_dir_resolves_under_study_project(tmp_path, rag):
+    from scripts.study_workspace import create_study
+    result = create_study("My Study", tmp_path)
+    project_root = result["project_root"]
+    rag_dir = rag._resolve_rag_dir(project=project_root)
+    assert str(rag_dir) == str(Path(project_root) / "database" / "qdrant-rag")
+
+
+def test_rag_dir_defaults_to_cwd_rag_db_without_project(tmp_path, monkeypatch, rag):
+    monkeypatch.chdir(tmp_path)
+    rag_dir = rag._resolve_rag_dir(project=None)
+    assert str(rag_dir) == str(tmp_path / "rag_db")
+
+
+def test_collection_pdf_name_switches_in_study_mode(tmp_path, rag):
+    from scripts.study_workspace import create_study
+    result = create_study("My Study", tmp_path)
+    assert rag._collection_pdf_name(project=result["project_root"]) == "included_pdf_chunks"
+    assert rag._collection_pdf_name(project=None) == "pdf_manual"
+
+
 def test_optional_backend_metadata_and_chroma_query(rag):
     from types import SimpleNamespace
 
@@ -149,3 +175,69 @@ def test_optional_backend_metadata_and_chroma_query(rag):
     assert meta["source_type"] == rag.SOURCE_PDF
     assert meta["chunk_index"] + 1 == 3
     assert meta["page"] == 3
+
+
+def test_query_returns_reranked_results_in_study_mode(tmp_path, hrt_module, monkeypatch):
+    fake_candidates = [
+        {"text": "irrelevant", "score": 0.9},
+        {"text": "highly relevant to query", "score": 0.5},
+    ]
+    monkeypatch.setattr(
+        hrt_module, "_rerank",
+        lambda query_text, candidates, top_k: list(reversed(candidates))[:top_k],
+    )
+    reranked = hrt_module._rerank("some query", fake_candidates, top_k=2)
+    assert reranked[0]["text"] == "highly relevant to query"
+
+
+def test_op_query_reranks_by_default_when_project_given(tmp_path, rag, monkeypatch):
+    from types import SimpleNamespace
+    from scripts.study_workspace import create_study
+
+    result = create_study("My Study", tmp_path)
+    project_root = result["project_root"]
+
+    backend = SimpleNamespace(
+        _client=SimpleNamespace(close=lambda: None),
+        count=lambda _: 1,
+        search=lambda *_: [
+            {"id": "a", "text": "alpha", "meta": {}, "score": 0.9, "collection": "papers"},
+        ],
+        get_all=lambda *_: [
+            {"id": "a", "text": "alpha", "meta": {}, "collection": "papers"},
+        ],
+        name=lambda: "fake",
+    )
+    monkeypatch.setattr(rag, "_backend_instance", backend)
+
+    calls = []
+
+    def fake_rerank(query_text, candidates, top_k):
+        calls.append((query_text, top_k))
+        return candidates
+
+    monkeypatch.setattr(rag, "_rerank", fake_rerank)
+    rag.op_query("some query", n_results=1, use_pdf=False, project=project_root)
+    assert calls, "_rerank should be invoked by default when project is set (study mode)"
+
+
+def test_index_prisma_refuses_without_wiki_export(tmp_path, hrt_module):
+    from scripts.study_workspace import create_study
+    result = create_study("My Study", tmp_path)
+    with pytest.raises(SystemExit):
+        hrt_module.main([
+            "index-prisma", str(Path(result["project_root"]) / "prisma" / "eligibility_prisma.json"),
+            "--project", result["project_root"],
+        ])
+
+
+def test_index_prisma_skip_wiki_export_flag_bypasses_gate(tmp_path, hrt_module):
+    from scripts.study_workspace import create_study
+    result = create_study("My Study", tmp_path)
+    eligibility = Path(result["project_root"]) / "prisma" / "eligibility_prisma.json"
+    eligibility.write_text("[]", encoding="utf-8")
+    hrt_module.main([
+        "index-prisma", str(eligibility),
+        "--project", result["project_root"],
+        "--skip-wiki-export",
+    ])

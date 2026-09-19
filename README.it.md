@@ -67,7 +67,7 @@ research-state/
 └── export-manifest.json    # configurazione DOCX
 ```
 
-`wiki_workspace` collega la revisione alla memoria trasversale. Il database RAG della singola revisione resta separato e locale al progetto.
+`wiki_workspace` collega la revisione alla memoria trasversale. Il database RAG della singola revisione resta separato e locale al progetto. All'interno di uno studio sigillato creato con `study_workspace.py` (vedi Avvio rapido più sotto) questo campo viene impostato automaticamente su `<study-root>/wiki-memory`, senza inserimento manuale del percorso.
 
 ---
 
@@ -208,7 +208,13 @@ Avvia Claude dallo stesso terminale: i server MCP invocano `python` dal `PATH`.
 
 ### 3. Configura e avvia
 
-Le variabili opzionali sono `CORE_API_KEY` e `SEMANTIC_SCHOLAR_API_KEY`. Copia `wiki/wiki.config.json` nel workspace dati `<W>` e modifica progetto, keyword e percorsi. Poi invoca:
+Le variabili opzionali sono `CORE_API_KEY` e `SEMANTIC_SCHOLAR_API_KEY`. Apri Claude Code nel tuo workspace e avvia un nuovo studio sigillato — basta dire "iniziamo una nuova ricerca" oppure invocare `/pipeline-ricerca nuova`; entrambi eseguono:
+
+```bash
+python "<PLUGIN_ROOT>/scripts/study_workspace.py" create --name "Spaced repetition review" --parent "<CURRENT_WORKSPACE>"
+```
+
+Questo crea una cartella `<study-slug>/` isolata (layout in [Python, modelli e percorsi portabili](docs/models-and-setup.md#sealed-study-directory-layout)) con il proprio `wiki-memory/`: non serve più configurare a mano un workspace wiki condiviso. Conferma con Claude il `project_root` stampato, poi avvia la review al suo interno:
 
 ```text
 /prisma-review "Qual è l'effetto della spaced repetition sulla ritenzione a lungo termine nell'istruzione superiore?"
