@@ -1,6 +1,6 @@
 # Python, models and portable paths
 
-> Release 1.3.1 · [English README](../README.md) · [Guida italiana](../README.it.md)
+> Release 1.4.0 · [English README](../README.md) · [Guida italiana](../README.it.md)
 
 Use Python 3.11+ and one activated virtual environment for installation, CLI commands and the Claude process that launches the MCP servers. Create the environment outside the installed plugin cache. Replace all example paths with your own absolute paths.
 
@@ -28,6 +28,8 @@ Optional MCP credentials are read from the process environment:
 |---|---|---|
 | `CORE_API_KEY` | Recommended | Practical CORE API rate limits |
 | `SEMANTIC_SCHOLAR_API_KEY` | Optional | Higher Semantic Scholar limits |
+| `NCBI_API_KEY` | Optional | PubMed limit from 3 to 10 requests/s |
+| `NCBI_EMAIL` | Optional | Contact address NCBI asks E-utilities clients to send |
 
 Set them before starting Claude. Never put them in the plugin manifest, documentation, or a tracked `.env` file.
 

@@ -5,7 +5,7 @@
 ### AI-powered systematic review, pilot study design, and preprint publication — with persistent knowledge memory
 
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-cc785c?style=flat-square&logo=anthropic&logoColor=white)](https://claude.ai/code)
-[![Release](https://img.shields.io/badge/release-v1.3.1-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.3.1)
+[![Release](https://img.shields.io/badge/release-v1.4.0-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.0)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![MCP](https://img.shields.io/badge/MCP-6_servers-1a7f37?style=flat-square)](https://modelcontextprotocol.io)
 [![Qdrant](https://img.shields.io/badge/Qdrant-vectors-f4a261?style=flat-square)](https://qdrant.tech)
@@ -187,7 +187,7 @@ Knowledge lives in two layers:
 
 ## 🌐 Academic MCP Servers
 
-Six MCP servers connect Claude directly to the global academic record:
+Eight MCP servers connect Claude directly to the global academic record:
 
 | Server | Coverage | Key Use Case |
 |---|---|---|
@@ -197,6 +197,8 @@ Six MCP servers connect Claude directly to the global academic record:
 | **DOAJ** | Peer-reviewed open-access journals | Journal quality verification |
 | **Zenodo** | Preprints, datasets, Horizon Europe deliverables | Grey literature + datasets |
 | **Semantic Scholar** | Citation graph + semantic similarity | Related work discovery |
+| **arXiv** | Preprints in CS, AI, maths, physics, quantitative biology | Ed-tech/AI preprints with open PDFs |
+| **PubMed** | 35M+ biomedical, health and psychology citations (+ PMC) | Health sciences, MeSH-based search |
 
 Each server implements MCP 1.x and exposes search/fetch tools that Claude invokes during the pipeline. Search tools preserve their human-readable text response by default and accept `output_format="json"` for complete machine-readable records, abstracts and pagination metadata.
 
@@ -243,8 +245,8 @@ synthesis.md → [Pandoc 3.x] → DOCX
 ```
 
 For local testing without a marketplace, clone the repo and run Claude Code
-with `claude --plugin-dir .` from inside it. Skills and the six MCP servers
-(ERIC, OpenAIRE, CORE, DOAJ, Zenodo, Semantic Scholar) are all declared in
+with `claude --plugin-dir .` from inside it. Skills and the eight MCP servers
+(ERIC, OpenAIRE, CORE, DOAJ, Zenodo, Semantic Scholar, arXiv, PubMed) are all declared in
 `.claude-plugin/plugin.json` — no manual `claude mcp add` needed.
 
 ### 2. Create one Python environment
@@ -254,7 +256,8 @@ Create a virtual environment, activate it, and run `python -m pip install -r "<P
 ### 3. Set optional API keys
 
 `CORE_API_KEY` (required for usable CORE rate limits) and
-`SEMANTIC_SCHOLAR_API_KEY` (optional, raises Semantic Scholar rate limits)
+`SEMANTIC_SCHOLAR_API_KEY` (optional, raises Semantic Scholar rate limits),
+`NCBI_API_KEY` and `NCBI_EMAIL` (optional, raise PubMed limits from 3 to 10 req/s)
 are read from the environment — export them before starting Claude Code.
 See [Models and setup](docs/models-and-setup.md) for environment and key setup details.
 
@@ -326,7 +329,7 @@ GitHub Actions runs the Python suite on `ubuntu-latest` and `windows-latest` wit
 - `memory/qdrant/`, `rag_db/`, PDFs, extraction tables and credentials are research data and must not be committed.
 - Hybrid RAG accepts only the documented eligibility filename/shape contracts and rejects explicit exclusion markers. Human confirmation remains a required pipeline gate before producing those exports.
 - The wiki HTTP context endpoint accepts loopback callers only. Remote serving requires authentication and deliberate network configuration.
-- `CORE_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY` and GitHub credentials are read from the environment; never add them to plugin manifests or documentation.
+- `CORE_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY`, `NCBI_API_KEY` and GitHub credentials are read from the environment; never add them to plugin manifests or documentation.
 - Every methodological decision remains in the PRISMA state/log files so automated retrieval does not replace the audit trail or human eligibility gate.
 
 ---
@@ -343,13 +346,18 @@ GitHub Actions runs the Python suite on `ubuntu-latest` and `windows-latest` wit
 
 ---
 
+## 📦 Release 1.4.0
+
+- arXiv and PubMed MCP servers: eight databases, all with complete JSON records (PubMed with full abstracts).
+- arXiv plain queries are ANDed instead of ORed.
+- `hybrid-rag query` reranking scores a candidate pool wider than the requested results.
+
 ## 📦 Release 1.3.0
 
 - Isolated per-study workspace with separate RAG and wiki Qdrant stores.
 - Mandatory wiki export before RAG indexing and BGE reranking on `hybrid-rag query`.
 - Best-effort automatic open-access full-text download.
 - Fixed Semantic Scholar MCP server startup (FastMCP 1.x).
-- 1.3.1: `hybrid-rag query` reranking scores a candidate pool wider than the requested results.
 
 ## 📦 Release 1.2.0
 

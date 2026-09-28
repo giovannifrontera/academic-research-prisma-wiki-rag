@@ -5,7 +5,7 @@
 ### Revisione sistematica, studi pilota e pubblicazione accademica assistiti dall'AI — con memoria persistente
 
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatibile-cc785c?style=flat-square&logo=anthropic&logoColor=white)](https://claude.ai/code)
-[![Release](https://img.shields.io/badge/release-v1.3.1-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.3.1)
+[![Release](https://img.shields.io/badge/release-v1.4.0-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.0)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![MCP](https://img.shields.io/badge/MCP-6_server-1a7f37?style=flat-square)](https://modelcontextprotocol.io)
 [![Qdrant](https://img.shields.io/badge/Qdrant-vectors-f4a261?style=flat-square)](https://qdrant.tech)
@@ -141,6 +141,8 @@ I modelli usano CUDA quando PyTorch e driver la espongono; la CPU resta un fallb
 | **DOAJ** | riviste open access | verifica della sede editoriale |
 | **Zenodo** | preprint, dataset, deliverable | letteratura grigia e dati |
 | **Semantic Scholar** | grafo citazionale | studi correlati |
+| **arXiv** | preprint di informatica, AI, matematica, fisica | preprint ed-tech/AI con PDF aperto |
+| **PubMed** | letteratura biomedica, sanitaria e psicologica (+ PMC) | scienze della salute, ricerca per MeSH |
 
 Gli strumenti mantengono il formato testuale e supportano `output_format="json"` per record completi e paginazione. Il vincolo `mcp>=1,<2` preserva la compatibilità con FastMCP 1.x.
 
@@ -148,7 +150,7 @@ Gli strumenti mantengono il formato testuale e supportano `output_format="json"`
 
 ## 🔬 Approfondimento tecnico
 
-Le skill installate contengono ruolo, protocollo di fase, schema di output e gate qualitativi. Claude Code le scopre dalla directory `skills/` del plugin; i sei server MCP sono dichiarati direttamente nel manifest, quindi non servono registrazioni manuali con `claude mcp add`.
+Le skill installate contengono ruolo, protocollo di fase, schema di output e gate qualitativi. Claude Code le scopre dalla directory `skills/` del plugin; gli otto server MCP sono dichiarati direttamente nel manifest, quindi non servono registrazioni manuali con `claude mcp add`.
 
 Esempio semplificato dello stato di screening:
 
@@ -208,7 +210,7 @@ Avvia Claude dallo stesso terminale: i server MCP invocano `python` dal `PATH`.
 
 ### 3. Configura e avvia
 
-Le variabili opzionali sono `CORE_API_KEY` e `SEMANTIC_SCHOLAR_API_KEY`. Apri Claude Code nel tuo workspace e avvia un nuovo studio sigillato — basta dire "iniziamo una nuova ricerca" oppure invocare `/pipeline-ricerca nuova`; entrambi eseguono:
+Le variabili opzionali sono `CORE_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY`, `NCBI_API_KEY` e `NCBI_EMAIL` (PubMed da 3 a 10 richieste/s). Apri Claude Code nel tuo workspace e avvia un nuovo studio sigillato — basta dire "iniziamo una nuova ricerca" oppure invocare `/pipeline-ricerca nuova`; entrambi eseguono:
 
 ```bash
 python "<PLUGIN_ROOT>/scripts/study_workspace.py" create --name "Spaced repetition review" --parent "<CURRENT_WORKSPACE>"
@@ -270,13 +272,18 @@ La CI esegue i test su Windows e Ubuntu con Python 3.11 e PyTorch CPU. La GPU vi
 
 ---
 
+## 📦 Release 1.4.0
+
+- Server MCP arXiv e PubMed: otto banche dati, tutte con record JSON completi (PubMed con abstract integrali).
+- Le query arXiv semplici sono unite in AND invece che in OR.
+- Il reranking di `hybrid-rag query` valuta un pool di candidati più ampio dei risultati richiesti.
+
 ## 📦 Release 1.3.0
 
 - Study workspace isolato per ogni ricerca, con Qdrant RAG e wiki separati.
 - Export wiki obbligatorio prima dell'indicizzazione RAG e reranking BGE anche su `hybrid-rag query`.
 - Download automatico best-effort dei full-text open-access.
 - Corretto l'avvio del server MCP Semantic Scholar (FastMCP 1.x).
-- 1.3.1: il reranking di `hybrid-rag query` valuta un pool di candidati più ampio dei risultati richiesti.
 
 ## 📦 Release 1.2.0
 

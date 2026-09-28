@@ -87,3 +87,70 @@ def test_get_complete_record(monkeypatch, server, tool):
     assert result["total"] == 1
     with pytest.raises(ValueError, match="output_format"):
         fn("1", output_format="csv")
+
+
+ARXIV_FEED = f"""<feed xmlns="http://www.w3.org/2005/Atom" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/"
+ xmlns:arxiv="http://arxiv.org/schemas/atom"><opensearch:totalResults>42</opensearch:totalResults>
+<entry><id>http://arxiv.org/abs/2301.00001v1</id><published>2023-01-01T00:00:00Z</published>
+<title>Study</title><summary>{ABSTRACT}</summary><author><name>A</name></author><arxiv:doi>10.1/x</arxiv:doi>
+<link title="pdf" href="http://arxiv.org/pdf/2301.00001v1"/><arxiv:primary_category term="cs.CY"/></entry></feed>"""
+
+PUBMED_ARTICLE = """<PubmedArticle><MedlineCitation><PMID>{p}</PMID><Article>
+<Journal><JournalIssue><PubDate><Year>2024</Year></PubDate></JournalIssue><Title>J</Title></Journal>
+<ArticleTitle>Study {p}</ArticleTitle><Abstract><AbstractText Label="METHODS">{abstract}</AbstractText></Abstract>
+<AuthorList><Author><LastName>Rossi</LastName><Initials>M</Initials></Author></AuthorList></Article></MedlineCitation>
+<PubmedData><ArticleIdList><ArticleId IdType="doi">10.1/{p}</ArticleId><ArticleId IdType="pmc">PMC{p}</ArticleId>
+</ArticleIdList></PubmedData></PubmedArticle>"""
+PUBMED_XML = "<PubmedArticleSet>" + "".join(
+    PUBMED_ARTICLE.format(p=p, abstract=ABSTRACT) for p in ("2", "1")) + "</PubmedArticleSet>"
+
+
+def _check_json_contract(module, fn, tool):
+    assert ABSTRACT not in fn("study")  # text preview stays the default
+    with pytest.raises(ValueError, match="output_format"):
+        fn("study", output_format="csv")
+    schema = next(t.inputSchema for t in asyncio.run(module.mcp.list_tools()) if t.name == tool)
+    assert schema["properties"]["output_format"]["enum"] == ["text", "json"]
+    assert schema["properties"]["output_format"]["default"] == "text"
+
+
+def test_arxiv_search_complete_records(monkeypatch):
+    import xml.etree.ElementTree as ET
+    module = load_server("arxiv")
+    seen = {}
+    def fake_fetch(params):
+        seen.update(params)
+        return ET.fromstring(ARXIV_FEED)
+    monkeypatch.setattr(module, "_fetch", fake_fetch)
+    result = json.loads(module.arxiv_search("spaced repetition", year_from=2020, output_format="json"))
+    assert seen["search_query"].startswith("all:spaced AND all:repetition AND submittedDate:[202001010000")
+    assert result["total"] == 42
+    rec = result["records"][0]
+    assert rec["abstract"] == ABSTRACT.strip() and rec["year"] == "2023" and rec["doi"] == "10.1/x"
+    assert rec["authors"] == [{"name": "A"}] and rec["fulltext_url"].endswith("2301.00001v1")
+    assert json.loads(module.arxiv_get("2301.00001", output_format="json"))["total"] == 1
+    _check_json_contract(module, module.arxiv_search, "arxiv_search")
+    _check_json_contract(module, module.arxiv_get, "arxiv_get")
+
+
+def test_arxiv_explicit_syntax_passes_through():
+    module = load_server("arxiv")
+    assert module._build_query('ti:"spaced repetition" OR abs:retrieval') == 'ti:"spaced repetition" OR abs:retrieval'
+    assert module._build_query("memory", category="cs.CY") == "cat:cs.CY AND (all:memory)"
+
+
+def test_pubmed_search_complete_records_in_relevance_order(monkeypatch):
+    import xml.etree.ElementTree as ET
+    module = load_server("pubmed")
+    monkeypatch.setattr(module, "_esearch", lambda *a, **k: {"count": "42", "idlist": ["1", "2"]})
+    monkeypatch.setattr(module, "_efetch", lambda ids: ET.fromstring(PUBMED_XML))
+    result = json.loads(module.pubmed_search("study", output_format="json"))
+    assert result["total"] == 42
+    assert [r["pmid"] for r in result["records"]] == ["1", "2"]  # esearch order, not efetch order
+    rec = result["records"][0]
+    assert rec["abstract"] == "METHODS: " + ABSTRACT.strip()
+    assert rec["doi"] == "10.1/1" and rec["pmcid"] == "PMC1" and rec["year"] == "2024"
+    assert rec["authors"][0]["name"] == "Rossi M"
+    assert json.loads(module.pubmed_get("PMID:1", output_format="json"))["records"][0]["pmid"] == "1"
+    _check_json_contract(module, module.pubmed_search, "pubmed_search")
+    _check_json_contract(module, module.pubmed_get, "pubmed_get")

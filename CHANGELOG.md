@@ -4,18 +4,31 @@ All notable plugin changes are documented here. Versions follow Semantic Version
 
 Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguono Semantic Versioning.
 
-## [1.3.1] - 2026-09-28
+## [1.4.0] - 2026-09-28
 
 ### English
 
+#### Added
+
+- arXiv MCP server (`arxiv_search`, `arxiv_count`, `arxiv_get`) recovered from the unmerged `main` branch and aligned with the others: `output_format="json"` with complete records, `fulltext_url` to the open PDF (used by automatic full-text acquisition).
+- PubMed MCP server (`pubmed_search`, `pubmed_count`, `pubmed_get`, `pubmed_search_pmc`) recovered and rewritten on `efetch` XML so records include full abstracts, MeSH terms, DOI and PMC ID. Optional `NCBI_API_KEY` / `NCBI_EMAIL`.
+
 #### Fixed
+
+- arXiv plain queries were ORed by the API ("spaced repetition" returned ~460,000 hits instead of ~900): plain terms are now ANDed, explicit arXiv syntax is passed through.
 
 - `hybrid-rag query` cross-encoder reranking now scores the top `n_results × 3` RRF candidates instead of only the top `n_results`, so it can recover relevant papers ranked below the cut-off rather than just reordering them. Result ranks are renumbered after reranking.
 
 ### Italiano
 
+#### Aggiunto
+
+- Server MCP arXiv (`arxiv_search`, `arxiv_count`, `arxiv_get`) recuperato dal ramo `main` mai unito e allineato agli altri: `output_format="json"` con record completi e `fulltext_url` al PDF aperto (usato dall'acquisizione automatica del full-text).
+- Server MCP PubMed (`pubmed_search`, `pubmed_count`, `pubmed_get`, `pubmed_search_pmc`) recuperato e riscritto su `efetch` XML: i record includono abstract completi, MeSH, DOI e PMC ID. `NCBI_API_KEY` / `NCBI_EMAIL` opzionali.
+
 #### Corretto
 
+- Le query arXiv semplici venivano interpretate in OR ("spaced repetition" dava ~460.000 risultati invece di ~900): ora i termini sono uniti in AND e la sintassi arXiv esplicita resta invariata.
 - Il reranking cross-encoder di `hybrid-rag query` valuta ora i primi `n_results × 3` candidati RRF invece dei soli `n_results`: può recuperare paper rilevanti sotto la soglia invece di limitarsi a riordinarli. I rank vengono rinumerati dopo il reranking.
 
 ## [1.3.0] - 2026-09-28
@@ -106,6 +119,6 @@ Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguon
 - Pre-plugin development baseline; this tag was not present on the remote when 1.2.0 was prepared.
 - Baseline precedente alla conversione completa; il tag non risultava sul remoto durante la preparazione di 1.2.0.
 
-[1.3.1]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.3.1
+[1.4.0]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.0
 [1.3.0]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.3.0
 [1.2.0]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.2.0

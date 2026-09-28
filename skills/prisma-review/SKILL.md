@@ -293,13 +293,13 @@ Se il wiki non ha pagine rilevanti: procedi normalmente, il wiki verrà popolato
 
 ### 1.1 — Query database (Stream 1)
 
-Costruisci le query adattando i parametri. Per i sei server inclusi usa `output_format="json"`. arXiv e PubMed sono integrazioni esterne opzionali, non incluse: verifica gli strumenti realmente esposti prima di usarli e registra le fonti non configurate. Il filtro minimo citazioni, se richiesto, va applicato dopo il recupero: Semantic Scholar non espone `min_citation_count`.
+Costruisci le query adattando i parametri. Per gli otto server inclusi usa `output_format="json"`. Il filtro minimo citazioni, se richiesto, va applicato dopo il recupero: Semantic Scholar non espone `min_citation_count`.
 
 | Database | Tool MCP | Parametri chiave |
 |----------|----------|-----------------|
 | `semantic-scholar` | `semantic_scholar_search` | `query`, `year_from`, `year_to`, `fields_of_study` (stringa), `limit`, `output_format="json"` |
-| `arxiv` | `search_papers` | `date_from="AAAA-MM-GG"`, `categories=[...]` — ⚠️ il nome del tool varia per versione; se la call fallisce, verificare il nome esatto con `claude mcp list --verbose` |
-| `pubmed` | `search_pubmed` | `"AAAA:AAAA"[Date - Publication]`, `[MeSH Terms]` |
+| `arxiv` | `arxiv_search` | `query` (termini semplici uniti in AND; sintassi `ti:`/`abs:`/`au:` accettata), `category` (es. `cs.CY`), `year_from`, `year_to`, `rows` (max 100), `offset` — attendere ~3 s tra chiamate |
+| `pubmed` | `pubmed_search` | `query` con tag `[tiab]`/`[mh]`, `year_from`, `year_to`, `article_type`, `rows` (max 200), `offset` — `NCBI_API_KEY` opzionale |
 | `eric` | `eric_advanced_search` | `query`, `rows` (max 200), `start`, `year_from`, `year_to`, `education_level`, `pub_type`, `language`, `title_only` |
 | `openaire` | `openaire_search` | `query`, `year_from`, `year_to`, `country="IT"` per fonti italiane |
 | `core` | `core_search` | `query`, `year_from`, `year_to`, `language="it"` — richiede `CORE_API_KEY` (free) |
@@ -400,7 +400,7 @@ raw_zenodo.json             ← lista di oggetti dal MCP zenodo
 
 **Contratto macchina:** i tool search inclusi, con `output_format="json"`, restituiscono un envelope JSON `{records: [...], total: ..., ...}`. Decodifica il JSON e salva la lista `records` senza ricostruirla dal Markdown. Conserva totale dichiarato, pagine/offset, query, data e limiti nel log; il totale remoto non equivale ai record effettivamente scaricati. Accumula tutte le pagine recuperate prima di deduplicare.
 
-OpenAIRE restituisce record normalizzati completi (titolo, DOI, anno, abstract, autori e altri campi disponibili); gli altri server conservano i record API grezzi. Per CORE usa i record già estratti in `records`; DOAJ conserva i wrapper contenenti `bibjson`, Zenodo i record con `metadata`. Le integrazioni esterne arXiv/PubMed richiedono un adattatore verificato al loro schema. Non salvare testo formattato come record e non inventare metadati mancanti.
+OpenAIRE restituisce record normalizzati completi (titolo, DOI, anno, abstract, autori e altri campi disponibili); gli altri server conservano i record API grezzi. Per CORE usa i record già estratti in `records`; DOAJ conserva i wrapper contenenti `bibjson`, Zenodo i record con `metadata`. arXiv e PubMed restituiscono record normalizzati completi (abstract incluso); arXiv espone anche `fulltext_url` al PDF aperto. Non salvare testo formattato come record e non inventare metadati mancanti.
 
 **Come salvare con Python:**
 ```python
@@ -444,8 +444,8 @@ Scrivi `prisma_screening.py` nella cartella di lavoro. Lo script deve:
 
 1. Leggere tutti i JSON estratti con questa mappatura per database (incluso `raw_pdf_manual.json`):
    - **Semantic Scholar**: `title`, `externalIds.DOI`, `year`, `abstract`, `authors[].name`
-   - **arXiv**: `title`, `doi` (fallback: `id`), `published[:4]`, `summary`, `authors[].name`
-   - **PubMed**: `Title`, `DOI`, `PubDate`, `Abstract`, `Authors[].name`
+   - **arXiv**: `title`, `doi` (fallback: `id`), `year`, `abstract`, `authors[].name`, `fulltext_url`
+   - **PubMed**: `title`, `doi` (fallback: `pmid`), `year`, `abstract`, `authors[].name`, `journal`
    - **ERIC**: `title`, `doi` (o `id` come fallback), `pubyear`, `description` (abstract), `author[]`, `subject[]`, `source` (rivista)
    - **OpenAIRE**: `title`, `doi`, `year`, `abstract`, `authors[]`
    - **CORE**: `title`, `doi`, `yearPublished`, `abstract`, `authors[].name`, `journals[0].title`

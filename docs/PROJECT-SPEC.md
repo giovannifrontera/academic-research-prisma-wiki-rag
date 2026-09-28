@@ -76,7 +76,7 @@ def write_state(path: str, data: dict) -> None:
 
 [MCP Servers bibliografici]
     Esistenti:  CORE · DOAJ · ERIC · OpenAIRE · Zenodo
-    Mancanti:   Semantic Scholar · PubMed · arXiv
+    Mancanti:   —  (Semantic Scholar, PubMed e arXiv implementati)
          ↓
 [prisma-review]
     PICO + RQ + ipotesi
@@ -918,8 +918,8 @@ python hybrid_rag.py query "[costrutto da citare]" --n 3
 | OpenAIRE | `mcp-servers/openaire/server.py` | ⚠️ Da verificare output JSON | |
 | Zenodo | `mcp-servers/zenodo/server.py` | ⚠️ Da verificare output JSON | |
 | Semantic Scholar | — | ❌ Non implementato | Alta priorità |
-| PubMed | — | ❌ Non implementato | Alta priorità |
-| arXiv | — | ❌ Non implementato | Media priorità |
+| PubMed | `mcp-servers/pubmed/server.py` | ✅ Implementato (1.4.0) | esearch + efetch XML, abstract completi |
+| arXiv | `mcp-servers/arxiv/server.py` | ✅ Implementato (1.4.0) | query in AND, `fulltext_url` PDF |
 
 ### 12.2 Standard di Implementazione (tutti i server)
 
@@ -963,7 +963,7 @@ Rate limit senza key: 100 req/5min → delay 3s tra richieste paginate
 Pagination: offset + limit (max 100 per chiamata)
 ```
 
-### 12.4 API PubMed (da implementare)
+### 12.4 API PubMed (implementata in 1.4.0)
 
 ```
 Base URL: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/
@@ -1215,7 +1215,7 @@ python "{repo_path}/wiki/scripts/wiki.py" query --workspace "{wiki_workspace}" -
 | S3.1 Creare `skills/pipeline-regista/SKILL.md` | — | Da pianificare |
 | S3.2 Completare `skills/research-design/SKILL.md` (Fase 0 + MOD-QN1) | `docs/superpowers/plans/2026-06-01-research-design-skill-mvp.md` | Piano esistente |
 | S3.3 Creare MCP Semantic Scholar | `mcp-servers/semantic-scholar/server.py` | Da pianificare |
-| S3.4 Creare MCP PubMed | `mcp-servers/pubmed/server.py` | Da pianificare |
+| S3.4 Creare MCP PubMed | `mcp-servers/pubmed/server.py` | ✅ Fatto (1.4.0) |
 | S3.5 Deprecare `pipeline-ricerca` e `educational-pilot-design` | Skills esistenti | 1h |
 
 **Deliverable:** Ricercatore può avviare un nuovo progetto end-to-end fino a research-design.
@@ -1231,7 +1231,7 @@ python "{repo_path}/wiki/scripts/wiki.py" query --workspace "{wiki_workspace}" -
 | S4.1 Creare `skills/data-collection/SKILL.md` | Da pianificare |
 | S4.2 Creare `skills/data-analysis/SKILL.md` | Da pianificare |
 | S4.3 Creare `skills/preprint/SKILL.md` | Da pianificare |
-| S4.4 Creare MCP arXiv | Da pianificare |
+| S4.4 Creare MCP arXiv | ✅ Fatto (1.4.0) |
 | S4.5 Validazione piano-analisi.json integrata | Sprint 4 |
 
 **Deliverable:** Pipeline completa end-to-end funzionante per MOD-QN1.

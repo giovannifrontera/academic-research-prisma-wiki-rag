@@ -1,7 +1,7 @@
 {
   "name": "academic-research-prisma-wiki-rag",
   "displayName": "Academic PRISMA Research Workflow",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "description": "AI-powered systematic review, pilot study design, and preprint publication — with persistent knowledge memory",
   "author": { "name": "Giovanni Frontera" },
   "repository": "https://github.com/giovannifrontera/academic-research-prisma-wiki-rag",
@@ -35,6 +35,15 @@
       "command": "python",
       "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/semantic-scholar/server.py"],
       "env": { "SEMANTIC_SCHOLAR_API_KEY": "${SEMANTIC_SCHOLAR_API_KEY:-}" }
+    },
+    "arxiv": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/arxiv/server.py"]
+    },
+    "pubmed": {
+      "command": "python",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/pubmed/server.py"],
+      "env": { "NCBI_API_KEY": "${NCBI_API_KEY:-}", "NCBI_EMAIL": "${NCBI_EMAIL:-}" }
     }
   }
 }
