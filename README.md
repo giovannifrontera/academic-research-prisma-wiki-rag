@@ -175,6 +175,14 @@ Knowledge lives in two layers:
 /wiki-core ingest-pdf path/to/paper.pdf --project spaced-repetition-2026
 ```
 
+### Web explorer
+
+`wiki.py serve` opens a browser view of the memory: an interactive graph of pages, explicit links and semantic similarities, with page details, statistics and lint, updated live while Claude works.
+
+![Wiki web explorer](wiki/docs/images/explorer-page.png)
+
+Start, login and every view are documented in the [wiki guide](wiki/README.md#-local-web-server).
+
 ### Technical notes
 - Embedding model: `BAAI/bge-m3` (multilingual, suited for academic text)
 - Second-stage reranker: `BAAI/bge-reranker-v2-m3`, with vector-order fallback if unavailable

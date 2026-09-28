@@ -4,8 +4,8 @@
 
 ### Persistent, inspectable knowledge for the Academic PRISMA Claude Code plugin
 
-[![Release](https://img.shields.io/badge/release-v1.2.0-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.2.0)
-[![Tests](https://img.shields.io/badge/tests-140%20passed-brightgreen?style=flat-square)](tests/)
+[![Release](https://img.shields.io/badge/release-v1.4.1-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.1)
+[![Tests](https://img.shields.io/badge/tests-190%20passed-brightgreen?style=flat-square)](tests/)
 [![Python](https://img.shields.io/badge/python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Qdrant](https://img.shields.io/badge/vector_store-Qdrant-f4a261?style=flat-square)](https://qdrant.tech)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square)](../LICENSE)
@@ -166,11 +166,46 @@ python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" lint --workspace "<W>" --full
 
 ## 🌐 Local web server
 
+The wiki ships a browser explorer: an interactive D3 graph of every page, with page details, semantic neighbours, statistics and lint, updated live over WebSocket while Claude writes to the wiki.
+
+### Start it
+
 ```bash
 python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" serve --workspace "<W>" --host 127.0.0.1 --port 7331
 ```
 
-The FastAPI server exposes the D3 graph, page details, statistics, lint actions and WebSocket updates. `/api/context` accepts loopback callers only. Open `http://127.0.0.1:7331` and log in: without `WIKI_PASSWORD` a random password is generated at every start and printed in the terminal (there is no shared default). Authentication is enabled unless `--no-auth` is selected; set `WIKI_PASSWORD` rather than storing a password in version control.
+In a sealed study `<W>` is `<study-slug>/wiki-memory`. Open `http://127.0.0.1:7331` in the browser.
+
+### Log in
+
+![Login](docs/images/explorer-login.png)
+
+Set `WIKI_PASSWORD` before starting to choose the password. Without it a random password is generated at every start and printed in the terminal — there is no shared default. The session cookie lasts `frontend.session_days` (default 7). `--no-auth` disables login for strictly local, single-user use.
+
+### Graph
+
+![Knowledge graph](docs/images/explorer-graph.png)
+
+- **Nodes** are wiki pages, coloured by category: entity (papers, authors), concept, synthesis, identity, raw. Size grows with the number of connections; vivid nodes are recently updated, grey ones are old.
+- **Edges**: solid lines are explicit `[[links]]`; dashed lines are semantic similarity computed from the BGE-M3 embeddings (visible once the pages are indexed).
+- **Project filter** (top left): `wiki` (cross-project knowledge), one entry per study under `wiki-works/`, or all.
+- **Search** (top right) filters nodes by title. The counter shows visible nodes and edges; the `live` dot is the WebSocket status.
+
+### Page detail
+
+![Page detail](docs/images/explorer-page.png)
+
+Click a node to open its page: category, project and date, the rendered Markdown body, outgoing and incoming links, and the most similar pages with their similarity score. Click a link or a similar page to move through the graph.
+
+### Stats
+
+![Statistics](docs/images/explorer-stats.png)
+
+Pages, indexed chunks and embedding coverage, stale pages (older than `thresholds.staleness_days`), the most queried pages (from `.wiki-query-log.jsonl`), pages still without embeddings and the last lint result. **Esegui lint ora** runs a lint on demand; set `frontend.lint_interval_hours` in `wiki.config.json` for periodic lint.
+
+### API and security
+
+The same server exposes `/api/graph`, `/api/page/<path>`, `/api/stats`, `/api/lint`, `/ws` (all authenticated) and `/api/context`, which the wiki skill queries for in-session retrieval and which accepts loopback callers only. Keep `--host 127.0.0.1`: exposing the server on a network requires a strong `WIKI_PASSWORD` and deliberate network configuration.
 
 ---
 

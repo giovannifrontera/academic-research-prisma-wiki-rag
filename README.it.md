@@ -129,6 +129,14 @@ La wiki conserva conoscenza leggibile in Markdown e la indicizza nello stesso mo
 
 I modelli usano CUDA quando PyTorch e driver la espongono; la CPU resta un fallback valido ma più lento. Guida operativa: [wiki/README.it.md](wiki/README.it.md).
 
+### Explorer web
+
+`wiki.py serve` apre una vista browser della memoria: grafo interattivo di pagine, link espliciti e similarità semantiche, con dettaglio, statistiche e lint, aggiornato in tempo reale mentre Claude lavora.
+
+![Explorer web della wiki](wiki/docs/images/explorer-page.png)
+
+Avvio, accesso e tutte le viste sono documentati nella [guida wiki](wiki/README.it.md#-server-web-locale).
+
 ---
 
 ## 🌐 Server MCP accademici

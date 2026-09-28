@@ -14,6 +14,10 @@ Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguon
 - Removed the shared default password `changeme`: without `WIKI_PASSWORD` or a configured password, a random password is generated per run and printed to the terminal. Password check is now constant-time.
 - The page detail panel no longer renders YAML frontmatter as body text.
 
+#### Documentation
+
+- Documented the wiki web explorer (start, login, graph, page detail, stats, API and security) with screenshots in `wiki/README.md`, and linked it from the main README.
+
 ### Italiano
 
 #### Corretto
@@ -21,6 +25,10 @@ Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguon
 - L'explorer web del wiki (`wiki.py serve`) era inutilizzabile con l'autenticazione attiva: il middleware bloccava anche `GET /` e il browser riceveva `{"error":"unauthorized"}` invece del form di login. La pagina statica è ora pubblica; grafo, pagine, statistiche, lint e WebSocket restano protetti.
 - Eliminata la password predefinita condivisa `changeme`: senza `WIKI_PASSWORD` o password configurata, a ogni avvio ne viene generata una casuale stampata nel terminale. Confronto password a tempo costante.
 - Il pannello di dettaglio non mostra più il frontmatter YAML come testo della pagina.
+
+#### Documentazione
+
+- Documentato l'explorer web del wiki (avvio, accesso, grafo, dettaglio pagina, statistiche, API e sicurezza) con screenshot in `wiki/README.it.md`, con rimando dal README principale.
 
 ## [1.4.0] - 2026-09-28
 

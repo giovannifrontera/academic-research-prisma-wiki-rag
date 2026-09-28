@@ -4,8 +4,8 @@
 
 ### Conoscenza persistente e ispezionabile per il plugin Academic PRISMA di Claude Code
 
-[![Release](https://img.shields.io/badge/release-v1.2.0-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.2.0)
-[![Test](https://img.shields.io/badge/test-140%20passati-brightgreen?style=flat-square)](tests/)
+[![Release](https://img.shields.io/badge/release-v1.4.1-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.1)
+[![Test](https://img.shields.io/badge/test-190%20passati-brightgreen?style=flat-square)](tests/)
 [![Python](https://img.shields.io/badge/python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Qdrant](https://img.shields.io/badge/vector_store-Qdrant-f4a261?style=flat-square)](https://qdrant.tech)
 [![Licenza](https://img.shields.io/badge/licenza-AGPL--3.0-blue?style=flat-square)](../LICENSE)
@@ -166,11 +166,46 @@ python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" lint --workspace "<W>" --full
 
 ## 🌐 Server web locale
 
+La wiki include un explorer web: un grafo D3 interattivo di tutte le pagine, con dettaglio, pagine semanticamente simili, statistiche e lint, aggiornato in tempo reale via WebSocket mentre Claude scrive nella wiki.
+
+### Avvio
+
 ```bash
 python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" serve --workspace "<W>" --host 127.0.0.1 --port 7331
 ```
 
-FastAPI espone grafo D3, pagine, statistiche, lint e WebSocket. `/api/context` accetta solo loopback. Apri `http://127.0.0.1:7331` ed effettua il login: senza `WIKI_PASSWORD` a ogni avvio viene generata una password casuale stampata nel terminale (non esiste una password predefinita condivisa). L'autenticazione è attiva salvo `--no-auth`; usa `WIKI_PASSWORD` anziché salvare password nel repository.
+In uno studio sigillato `<W>` è `<study-slug>/wiki-memory`. Apri `http://127.0.0.1:7331` nel browser.
+
+### Accesso
+
+![Login](docs/images/explorer-login.png)
+
+Imposta `WIKI_PASSWORD` prima dell'avvio per scegliere la password. Senza, a ogni avvio ne viene generata una casuale stampata nel terminale: non esiste una password predefinita condivisa. Il cookie di sessione dura `frontend.session_days` (predefinito 7). `--no-auth` disattiva il login solo per uso locale e personale.
+
+### Grafo
+
+![Grafo della conoscenza](docs/images/explorer-graph.png)
+
+- **Nodi**: le pagine wiki, colorate per categoria: entità (paper, autori), concetto, sintesi, identity, raw. La dimensione cresce con i collegamenti; i nodi vividi sono aggiornati di recente, quelli grigi sono vecchi.
+- **Archi**: le linee continue sono i `[[link]]` espliciti; quelle tratteggiate sono similarità semantiche calcolate dagli embedding BGE-M3 (compaiono dopo l'indicizzazione).
+- **Filtro progetto** (in alto a sinistra): `wiki` (conoscenza trasversale), uno per ogni studio in `wiki-works/`, oppure tutti.
+- **Ricerca** (in alto a destra): filtra i nodi per titolo. Il contatore mostra nodi e archi visibili; il punto `live` indica lo stato del WebSocket.
+
+### Dettaglio pagina
+
+![Dettaglio pagina](docs/images/explorer-page.png)
+
+Clic su un nodo per aprire la pagina: categoria, progetto e data, testo Markdown, link uscenti ed entranti e pagine più simili con il punteggio di similarità. Clic su un link o su una pagina simile per spostarsi nel grafo.
+
+### Statistiche
+
+![Statistiche](docs/images/explorer-stats.png)
+
+Pagine, chunk indicizzati e copertura degli embedding, pagine stale (più vecchie di `thresholds.staleness_days`), pagine più interrogate (da `.wiki-query-log.jsonl`), pagine ancora senza embedding e ultimo esito del lint. **Esegui lint ora** avvia un lint su richiesta; imposta `frontend.lint_interval_hours` in `wiki.config.json` per il lint periodico.
+
+### API e sicurezza
+
+Lo stesso server espone `/api/graph`, `/api/page/<percorso>`, `/api/stats`, `/api/lint`, `/ws` (tutti autenticati) e `/api/context`, interrogato dalla skill wiki per il retrieval in sessione e accessibile solo da loopback. Mantieni `--host 127.0.0.1`: esporre il server in rete richiede una `WIKI_PASSWORD` robusta e una configurazione di rete deliberata.
 
 ---
 
