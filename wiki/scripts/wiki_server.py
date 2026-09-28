@@ -14,7 +14,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 sys.path.insert(0, str(Path(__file__).parent))
+_REPO_ROOT = Path(__file__).resolve().parents[2]  # plugin root, holds the shared `scripts` package
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 import wiki_graph  # noqa: E402
+from scripts.study_paths import study_metadata  # noqa: E402
 try:
     import wiki_qdrant as _wiki_qdrant
     from wiki_index import EXCLUDED_NAMES as _EXCLUDED_NAMES
@@ -125,6 +129,7 @@ async def logout():
 async def api_graph():
     data = wiki_graph.build_graph(_workspace, _cfg)
     data["agent_name"] = _cfg.get("frontend", {}).get("agent_name", "")
+    data["study"] = study_metadata(_workspace)
     return JSONResponse(data)
 
 

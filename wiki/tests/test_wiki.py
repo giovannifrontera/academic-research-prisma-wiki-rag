@@ -184,3 +184,33 @@ def test_session_update(tmp_workspace):
     assert session_file.exists()
     content = session_file.read_text()
     assert "status: ok" in content
+
+
+def test_serve_project_rejects_wiki_outside_study(tmp_workspace, monkeypatch):
+    import json, wiki
+    study = tmp_workspace.parent / "study-x"
+    study.mkdir()
+    (study / ".project-state.json").write_text(json.dumps(
+        {"study_slug": "study-x", "paths": {"wiki_workspace": str(tmp_workspace)}}))
+    monkeypatch.setattr(sys, "argv", ["wiki.py", "serve", "--project", str(study)])
+    with pytest.raises(SystemExit) as exc:
+        wiki.main()
+    assert exc.value.code == 1
+
+
+def test_serve_project_starts_on_study_wiki(tmp_path, monkeypatch):
+    import json, wiki, wiki_workflows
+    study = tmp_path / "study-y"
+    ws = study / "wiki-memory"
+    ws.mkdir(parents=True)
+    (study / ".project-state.json").write_text(json.dumps(
+        {"study_slug": "study-y", "paths": {"wiki_workspace": "wiki-memory"}}))
+    src = Path(__file__).parent.parent / "wiki.config.json"
+    cfg = json.loads(src.read_text(encoding="utf-8"))
+    cfg["workspace"] = str(ws)
+    (ws / "wiki.config.json").write_text(json.dumps(cfg))
+    seen = {}
+    monkeypatch.setattr(wiki_workflows, "cmd_serve", lambda args, cfg: seen.update(ws=args.workspace))
+    monkeypatch.setattr(sys, "argv", ["wiki.py", "serve", "--project", str(ws)])
+    wiki.main()
+    assert Path(seen["ws"]) == ws.resolve()

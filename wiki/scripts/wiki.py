@@ -7,6 +7,10 @@ import sys
 import argparse
 from pathlib import Path
 
+_REPO_ROOT = Path(__file__).resolve().parents[2]  # plugin root, holds the shared `scripts` package
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 REQUIRED_CONFIG_FIELDS = [
     ("workspace",),
     ("projects",),
@@ -158,7 +162,9 @@ def main():
         help="Limit to a specific project (e.g. 'ricerca')")
 
     p_serve = sub.add_parser("serve")
-    p_serve.add_argument("--workspace", required=True)
+    target = p_serve.add_mutually_exclusive_group(required=True)
+    target.add_argument("--workspace")
+    target.add_argument("--project", help="sealed study root or any directory inside it")
     p_serve.add_argument("--host", default="127.0.0.1")
     p_serve.add_argument("--port", type=int, default=7331)
     p_serve.add_argument("--no-auth", action="store_true")
@@ -167,6 +173,14 @@ def main():
     if not args.command:
         parser.print_help()
         sys.exit(1)
+
+    if getattr(args, "project", None):
+        from scripts.study_paths import resolve_study_wiki, StudyStateError, PathEscapeError
+        try:
+            args.workspace = str(resolve_study_wiki(args.project))
+        except (StudyStateError, PathEscapeError) as e:
+            error("invalid_study", str(e), recoverable=False)
+            sys.exit(1)
 
     config_path = os.path.join(args.workspace, "wiki.config.json")
     try:

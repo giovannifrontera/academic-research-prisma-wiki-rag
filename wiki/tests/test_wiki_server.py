@@ -239,3 +239,18 @@ def test_default_password_is_random_not_changeme(tmp_workspace, monkeypatch):
     client = TestClient(wiki_server.app)
     assert client.post("/auth/login", json={"password": "changeme"}).status_code == 401
     assert client.post("/auth/login", json={"password": wiki_server._secret_key}).status_code == 200
+
+
+def test_api_graph_has_null_study_outside_sealed_study(server_client):
+    assert server_client.get("/api/graph").json()["study"] is None
+
+
+def test_api_graph_reports_study(tmp_workspace, monkeypatch):
+    import wiki_server, wiki_graph
+    wiki_graph._CACHE = None
+    monkeypatch.setattr(wiki_server, "study_metadata",
+                        lambda ws: {"name": "My Study", "slug": "my-study", "id": "u1"})
+    cfg = json.loads((tmp_workspace / "wiki.config.json").read_text())
+    wiki_server.configure(str(tmp_workspace), cfg, no_auth=True)
+    from fastapi.testclient import TestClient
+    assert TestClient(wiki_server.app).get("/api/graph").json()["study"]["name"] == "My Study"
