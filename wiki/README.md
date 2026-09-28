@@ -4,7 +4,7 @@
 
 ### Persistent, inspectable knowledge for the Academic PRISMA Claude Code plugin
 
-[![Release](https://img.shields.io/badge/release-v1.4.1-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.1)
+[![Release](https://img.shields.io/badge/release-v1.4.2-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.2)
 [![Tests](https://img.shields.io/badge/tests-190%20passed-brightgreen?style=flat-square)](tests/)
 [![Python](https://img.shields.io/badge/python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Qdrant](https://img.shields.io/badge/vector_store-Qdrant-f4a261?style=flat-square)](https://qdrant.tech)

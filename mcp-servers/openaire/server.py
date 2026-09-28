@@ -1,12 +1,14 @@
 """
 OpenAIRE MCP Server
-Searches the OpenAIRE Graph API for open access publications from
-European and Italian institutional repositories.
-API docs: https://graph.openaire.eu/develop/api.html
+Searches the OpenAIRE Graph for publications from European and Italian
+institutional repositories, aggregated and deduplicated by OpenAIRE.
+API docs: https://graph.openaire.eu/docs/apis/graph-api/
+(The legacy Search API at /search/publications was retired on 2026-05-31.)
 No API key required.
 """
 
 import json
+import re
 from typing import Literal
 import urllib.request
 import urllib.parse
@@ -15,100 +17,78 @@ from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("openaire")
 
-SEARCH_API = "https://api.openaire.eu/search/publications"
+SEARCH_API = "https://api.openaire.eu/graph/v2/researchProducts"
 DEFAULT_TIMEOUT = 30
+_NOT_OPEN = ["EMBARGO", "CLOSED", "RESTRICTED", "UNKNOWN"]
 
 
 def _request(params: dict) -> dict:
-    url = SEARCH_API + "?" + urllib.parse.urlencode(params)
+    url = SEARCH_API + "?" + urllib.parse.urlencode(params, doseq=True)
     req = urllib.request.Request(url, headers={"Accept": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
-        raise RuntimeError(f"OpenAIRE API error: HTTP {e.code} ({e.reason})") from e
+        detail = ""
+        try:
+            detail = json.loads(e.read().decode()).get("message", "")
+        except Exception:
+            pass
+        raise RuntimeError(f"OpenAIRE API error: HTTP {e.code} ({detail or e.reason})") from e
     except urllib.error.URLError as e:
         raise RuntimeError(f"OpenAIRE API unreachable: {e.reason}") from e
     except TimeoutError:
         raise RuntimeError(f"OpenAIRE API timeout after {DEFAULT_TIMEOUT}s") from None
 
 
-def _get(obj, *keys):
-    for k in keys:
-        if not isinstance(obj, dict):
-            return None
-        obj = obj.get(k)
-    return obj
+def _params(query: str, year_from=None, year_to=None, country=None, open_access=None) -> dict:
+    params = {"search": query, "type": "publication"}
+    if year_from:
+        params["fromPublicationDate"] = str(year_from)
+    if year_to:
+        params["toPublicationDate"] = str(year_to)
+    if country:
+        params["countryCode"] = country
+    if open_access is True:
+        params["bestOpenAccessRightLabel"] = "OPEN"
+    elif open_access is False:
+        params["bestOpenAccessRightLabel"] = _NOT_OPEN
+    return params
+
+
+def _clean(text: str) -> str:
+    # Abstracts often carry JATS/HTML markup ("<jats:p>...").
+    return " ".join(re.sub(r"<[^>]+>", " ", text or "").split())
 
 
 def _parse(result: dict) -> dict:
-    meta = _get(result, "metadata", "oaf:entity", "oaf:result") or {}
-
-    title_obj = meta.get("title", {})
-    if isinstance(title_obj, list):
-        title = title_obj[0].get("$", "") if title_obj else ""
-    elif isinstance(title_obj, dict):
-        title = title_obj.get("$", "")
-    else:
-        title = str(title_obj) if title_obj else ""
-
-    creators = meta.get("creator", [])
-    if isinstance(creators, dict):
-        creators = [creators]
-    authors = [c.get("$", "") for c in creators if isinstance(c, dict)]
-
-    date = meta.get("dateofacceptance", {})
-    year = date.get("$", "")[:4] if isinstance(date, dict) else ""
-
-    desc = meta.get("description", {})
-    if isinstance(desc, list):
-        abstract = desc[0].get("$", "") if desc else ""
-    elif isinstance(desc, dict):
-        abstract = desc.get("$", "")
-    else:
-        # FIX: preserve abstract when API returns a plain string
-        abstract = str(desc) if desc else ""
-
-    pid = meta.get("pid", [])
-    if isinstance(pid, dict):
-        pid = [pid]
-    # FIX: case-insensitive classid comparison for DOI
-    doi = next(
-        (p.get("$", "") for p in (pid or [])
-         if isinstance(p, dict) and p.get("@classid", "").lower() == "doi"),
-        ""
-    )
-
-    source = meta.get("source", {})
-    if isinstance(source, list):
-        journal = source[0].get("$", "") if source else ""
-    elif isinstance(source, dict):
-        journal = source.get("$", "")
-    else:
-        journal = ""
-
-    best = meta.get("bestaccessright", {})
-    oa = best.get("@classid", "") == "OPEN" if isinstance(best, dict) else False
-
-    header = result.get("header", {})
-    oa_id = _get(header, "dri:objIdentifier", "$") or ""
-
-    return {"title": title, "authors": authors, "year": year, "abstract": abstract,
-            "doi": doi, "journal": journal, "open_access": oa, "openaire_id": oa_id}
+    """Normalized record from a Graph API research product."""
+    pids = result.get("pids") or []
+    doi = next((p.get("value", "") for p in pids
+                if isinstance(p, dict) and (p.get("scheme") or "").lower() == "doi"), "")
+    descriptions = result.get("descriptions") or []
+    best = result.get("bestAccessRight") or {}
+    container = result.get("container") or {}
+    language = result.get("language") or {}
+    return {
+        "title": result.get("mainTitle") or "",
+        "authors": [a.get("fullName", "") for a in (result.get("authors") or []) if isinstance(a, dict)],
+        "year": (result.get("publicationDate") or "")[:4],
+        "abstract": _clean(descriptions[0]) if descriptions else "",
+        "doi": doi,
+        "journal": container.get("name", "") if isinstance(container, dict) else "",
+        "publisher": result.get("publisher") or "",
+        "language": language.get("label", "") if isinstance(language, dict) else "",
+        "open_access": best.get("label") == "OPEN" if isinstance(best, dict) else False,
+        "openaire_id": result.get("id") or "",
+    }
 
 
-def _format(data: dict, label: str) -> str:
-    response = data.get("response", {})
-    total = _get(response, "header", "total", "$") or "0"
-    raw = _get(response, "results", "result") or []
-    if isinstance(raw, dict):
-        raw = [raw]
-    if not raw:
+def _format(records: list, label: str, total: int) -> str:
+    if not records:
         return f"OpenAIRE — no results for: {label}"
-
-    lines = [f"OpenAIRE — {total} results for '{label}' (showing {len(raw)}):\n"]
-    for i, r in enumerate(raw, 1):
-        rec = _parse(r)
+    lines = [f"OpenAIRE — {total} results for '{label}' (showing {len(records)}):\n"]
+    for i, rec in enumerate(records, 1):
         auth = ", ".join(rec["authors"][:3]) + (" et al." if len(rec["authors"]) > 3 else "")
         line = f"{i}. **{rec['title'] or '(no title)'}**\n"
         line += f"   {auth or 'N/A'} ({rec['year'] or 'n.d.'})\n"
@@ -117,7 +97,7 @@ def _format(data: dict, label: str) -> str:
         if rec["doi"]:
             line += f"   DOI: {rec['doi']}\n"
         if rec["openaire_id"]:
-            line += f"   OpenAIRE: https://explore.openaire.eu/search/publication?articleId={rec['openaire_id']}\n"
+            line += f"   OpenAIRE: https://explore.openaire.eu/search/result?id={rec['openaire_id']}\n"
         line += f"   Access: {'Open Access' if rec['open_access'] else 'Limited'}\n"
         if rec["abstract"]:
             line += f"   Abstract: {rec['abstract'][:300]}{'...' if len(rec['abstract']) > 300 else ''}\n"
@@ -137,13 +117,14 @@ def openaire_search(
     output_format: Literal["text", "json"] = "text",
 ) -> str:
     """
-    Search OpenAIRE for open access publications (European + Italian repositories).
-    Use for PRISMA database search step.
+    Search OpenAIRE for publications (European + Italian repositories).
+    Use for PRISMA database search step. Plain terms are combined with AND;
+    "exact phrase", OR, NOT and parentheses are supported.
 
     Args:
         query: Search terms (e.g. "chatbot education metacognition")
-        year_from: Start year (e.g. 2015)
-        year_to: End year (e.g. 2025)
+        year_from: Start publication year (e.g. 2015)
+        year_to: End publication year (e.g. 2025)
         country: ISO country code to filter (e.g. "IT", "FR")
         open_access: True = OA only, False = non-OA only, None = all
         rows: Results per page (default 10, max 100)
@@ -153,24 +134,14 @@ def openaire_search(
     if output_format not in ("text", "json"):
         raise ValueError("output_format must be 'text' or 'json'")
     try:
-        params = {"keywords": query, "format": "json", "page": page, "size": rows}
-        if country:
-            params["country"] = country
-        if year_from:
-            params["fromDateAccepted"] = f"{year_from}-01-01"
-        if year_to:
-            params["toDateAccepted"] = f"{year_to}-12-31"
-        if open_access is True:
-            params["OA"] = "true"
-        elif open_access is False:
-            params["OA"] = "false"
+        rows = max(1, min(rows, 100))
+        params = {**_params(query, year_from, year_to, country, open_access), "page": page, "pageSize": rows}
         data = _request(params)
+        records = [_parse(r) for r in (data.get("results") or [])]
+        total = int((data.get("header") or {}).get("numFound") or 0)
         if output_format == "json":
-            raw = _get(data, "response", "results", "result") or []
-            if isinstance(raw, dict):
-                raw = [raw]
-            return json.dumps({"records": [_parse(r) for r in raw], "total": int(_get(data, "response", "header", "total", "$") or 0), "page": page, "size": rows}, ensure_ascii=False)
-        return _format(data, query)
+            return json.dumps({"records": records, "total": total, "page": page, "size": rows}, ensure_ascii=False)
+        return _format(records, query, total)
     except RuntimeError as e:
         return f"Error: {e}"
     except Exception as e:
@@ -195,15 +166,8 @@ def openaire_count(
         country: ISO country code (e.g. "IT")
     """
     try:
-        params = {"keywords": query, "format": "json", "page": 1, "size": 1}
-        if country:
-            params["country"] = country
-        if year_from:
-            params["fromDateAccepted"] = f"{year_from}-01-01"
-        if year_to:
-            params["toDateAccepted"] = f"{year_to}-12-31"
-        data = _request(params)
-        total = _get(data, "response", "header", "total", "$") or "0"
+        data = _request({**_params(query, year_from, year_to, country), "page": 1, "pageSize": 1})
+        total = int((data.get("header") or {}).get("numFound") or 0)
         parts = [f"OpenAIRE — results for '{query}'"]
         if country:
             parts.append(f"[{country}]")

@@ -4,6 +4,20 @@ All notable plugin changes are documented here. Versions follow Semantic Version
 
 Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguono Semantic Versioning.
 
+## [1.4.2] - 2026-09-28
+
+### English
+
+#### Fixed
+
+- OpenAIRE MCP server timed out on every request: OpenAIRE retired the legacy Search API (`/search/publications`) on 2026-05-31 and it now answers `503` after 60 s. The server now uses the Graph API v2 (`/graph/v2/researchProducts`, ~1 s per request) with the same tools and parameters; plain terms are ANDed, abstracts are cleaned of JATS markup, API error messages are reported.
+
+### Italiano
+
+#### Corretto
+
+- Il server MCP OpenAIRE andava in timeout a ogni richiesta: OpenAIRE ha dismesso la vecchia Search API (`/search/publications`) il 31/05/2026, che ora risponde `503` dopo 60 s. Il server usa ora la Graph API v2 (`/graph/v2/researchProducts`, ~1 s a richiesta) con gli stessi tool e parametri; i termini semplici sono in AND, gli abstract sono ripuliti dal markup JATS e i messaggi d'errore dell'API vengono riportati.
+
 ## [1.4.1] - 2026-09-28
 
 ### English
@@ -155,6 +169,7 @@ Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguon
 - Pre-plugin development baseline; this tag was not present on the remote when 1.2.0 was prepared.
 - Baseline precedente alla conversione completa; il tag non risultava sul remoto durante la preparazione di 1.2.0.
 
+[1.4.2]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.2
 [1.4.1]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.1
 [1.4.0]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.0
 [1.3.0]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.3.0

@@ -15,9 +15,9 @@ RECORD = {"id": "record-1", "title": "Study", "abstract": ABSTRACT,
 ERIC = {"id": "EJ1", "title": "Study", "description": ABSTRACT, "author": ["A", "B", "C", "D"]}
 DOAJ = {"id": "doaj-1", "bibjson": {"title": "Study", "abstract": ABSTRACT, "author": [{"name": "A"}]}}
 ZENODO = {"id": 1, "metadata": {"title": "Study", "description": ABSTRACT, "creators": [{"name": "A"}]}}
-OPENAIRE = {"header": {"dri:objIdentifier": {"$": "oa-1"}}, "metadata": {"oaf:entity": {"oaf:result": {
-    "title": {"$": "Study"}, "description": {"$": ABSTRACT}, "creator": [{"$": "A"}],
-}}}}
+OPENAIRE = {"id": "oa-1", "mainTitle": "Study", "descriptions": [f"<jats:p>{ABSTRACT}</jats:p>"],
+            "authors": [{"fullName": "A"}], "publicationDate": "2024-05-01",
+            "pids": [{"scheme": "doi", "value": "10.1/oa"}], "bestAccessRight": {"label": "OPEN"}}
 
 
 def load_server(name):
@@ -35,7 +35,7 @@ def load_server(name):
     ("semantic-scholar", "semantic_scholar_search", "_get", {"data": [RECORD], "total": 42, "offset": 5, "next": 6}, RECORD),
     ("doaj", "doaj_search_articles", "_get", {"results": [DOAJ], "total": 42}, DOAJ),
     ("zenodo", "zenodo_search", "_get", {"hits": {"hits": [ZENODO], "total": {"value": 42, "relation": "eq"}}}, ZENODO),
-    ("openaire", "openaire_search", "_request", {"response": {"header": {"total": {"$": "42"}}, "results": {"result": OPENAIRE}}}, None),
+    ("openaire", "openaire_search", "_request", {"header": {"numFound": 42}, "results": [OPENAIRE]}, None),
 ])
 def test_search_complete_records_and_registered_schema(monkeypatch, server, tool, helper, data, expected):
     module = load_server(server)
@@ -44,7 +44,7 @@ def test_search_complete_records_and_registered_schema(monkeypatch, server, tool
     result = json.loads(fn("study", output_format="json"))
     assert result["total"] == 42
     assert result["records"] == [expected or module._parse(OPENAIRE)]
-    assert ABSTRACT in json.dumps(result)
+    assert ABSTRACT.strip() in json.dumps(result)  # complete, not truncated
     assert ABSTRACT not in fn("study")  # Legacy text preview remains the default.
     with pytest.raises(ValueError, match="output_format"):
         fn("study", output_format="csv")
@@ -154,3 +154,21 @@ def test_pubmed_search_complete_records_in_relevance_order(monkeypatch):
     assert json.loads(module.pubmed_get("PMID:1", output_format="json"))["records"][0]["pmid"] == "1"
     _check_json_contract(module, module.pubmed_search, "pubmed_search")
     _check_json_contract(module, module.pubmed_get, "pubmed_get")
+
+
+def test_openaire_graph_api_params_and_normalization(monkeypatch):
+    # The legacy /search/publications API was retired on 2026-05-31.
+    module = load_server("openaire")
+    assert "/graph/" in module.SEARCH_API
+    seen = {}
+    monkeypatch.setattr(module, "_request", lambda params: seen.update(params) or
+                        {"header": {"numFound": 1}, "results": [OPENAIRE]})
+    rec = json.loads(module.openaire_search("ai elearning", year_from=2020, year_to=2026, country="IT",
+                                            open_access=True, output_format="json"))["records"][0]
+    assert seen["search"] == "ai elearning" and seen["type"] == "publication"
+    assert seen["fromPublicationDate"] == "2020" and seen["toPublicationDate"] == "2026"
+    assert seen["countryCode"] == "IT" and seen["bestOpenAccessRightLabel"] == "OPEN"
+    assert rec["abstract"] == ABSTRACT.strip() and "<" not in rec["abstract"]
+    assert rec["doi"] == "10.1/oa" and rec["year"] == "2024" and rec["open_access"] is True
+    module.openaire_search("x", open_access=False)
+    assert "OPEN" not in seen["bestOpenAccessRightLabel"]
