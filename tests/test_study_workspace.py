@@ -41,7 +41,8 @@ def test_build_state_shape(tmp_path):
         "mode": "sealed", "allow_external_reads": False, "allow_external_writes": False
     }
     assert state["paths"] == {
-        "prisma": "prisma", "sources": "sources", "qdrant": "database/qdrant",
+        "prisma": "prisma", "sources": "sources",
+        "qdrant_rag": "database/qdrant-rag", "qdrant_wiki": "database/qdrant-wiki",
         "wiki_workspace": "wiki-memory", "synthesis": "synthesis",
         "design": "design", "preprint": "preprint", "export": "export",
     }
@@ -149,3 +150,12 @@ def test_create_study_writes_wiki_config(tmp_path):
     assert "my-study" in config["projects"]
     assert config["projects"]["my-study"]["path"] == "wiki-works/my-study"
     assert config["qdrant"]["path"] == str(root / "database" / "qdrant-wiki")
+
+
+def test_every_state_path_exists_after_create(tmp_path):
+    # Regression: state once advertised "database/qdrant", a directory never created.
+    from scripts.study_workspace import create_study, read_state
+    from pathlib import Path
+    root = Path(create_study("My Study", tmp_path)["project_root"])
+    for key, rel in read_state(root)["paths"].items():
+        assert (root / rel).is_dir(), f"paths.{key} -> {rel} does not exist"

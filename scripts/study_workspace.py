@@ -58,7 +58,8 @@ def build_state(study_name: str, study_slug: str, project_root: Path) -> dict:
         "paths": {
             "prisma": "prisma",
             "sources": "sources",
-            "qdrant": "database/qdrant",
+            "qdrant_rag": "database/qdrant-rag",
+            "qdrant_wiki": "database/qdrant-wiki",
             "wiki_workspace": "wiki-memory",
             "synthesis": "synthesis",
             "design": "design",

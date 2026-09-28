@@ -13,6 +13,7 @@ Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguon
 - Wiki web explorer (`wiki.py serve`) was unusable with authentication on: the auth middleware also blocked `GET /`, so the browser received `{"error":"unauthorized"}` instead of the login form. The static page is now public; graph, page, stats, lint and WebSocket routes stay protected.
 - Removed the shared default password `changeme`: without `WIKI_PASSWORD` or a configured password, a random password is generated per run and printed to the terminal. Password check is now constant-time.
 - The page detail panel no longer renders YAML frontmatter as body text.
+- `.project-state.json` advertised `paths.qdrant = database/qdrant`, a directory that is never created. New studies now record `paths.qdrant_rag` and `paths.qdrant_wiki`, as the isolated study workspace spec requires. No code read the old key, so existing studies keep working.
 
 #### Documentation
 
@@ -33,6 +34,7 @@ Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguon
 - L'explorer web del wiki (`wiki.py serve`) era inutilizzabile con l'autenticazione attiva: il middleware bloccava anche `GET /` e il browser riceveva `{"error":"unauthorized"}` invece del form di login. La pagina statica è ora pubblica; grafo, pagine, statistiche, lint e WebSocket restano protetti.
 - Eliminata la password predefinita condivisa `changeme`: senza `WIKI_PASSWORD` o password configurata, a ogni avvio ne viene generata una casuale stampata nel terminale. Confronto password a tempo costante.
 - Il pannello di dettaglio non mostra più il frontmatter YAML come testo della pagina.
+- `.project-state.json` indicava `paths.qdrant = database/qdrant`, cartella mai creata. I nuovi studi registrano `paths.qdrant_rag` e `paths.qdrant_wiki`, come prevede la spec dello study workspace isolato. Nessun codice leggeva la vecchia chiave: gli studi esistenti continuano a funzionare.
 
 #### Documentazione
 
