@@ -47,7 +47,14 @@ def configure(workspace: str, cfg: dict, no_auth: bool) -> None:
     _cfg = cfg
     _no_auth = no_auth
     frontend = cfg.get("frontend", {})
-    _secret_key = os.environ.get("WIKI_PASSWORD") or frontend.get("password", "changeme")
+    _secret_key = os.environ.get("WIKI_PASSWORD") or frontend.get("password")
+    if not _secret_key and not no_auth:
+        import secrets
+        # No shared default password: generate one per run and show it only locally.
+        _secret_key = secrets.token_urlsafe(12)
+        print(f"Wiki password (generated for this session): {_secret_key}\n"
+              "Set WIKI_PASSWORD to choose your own.", file=sys.stderr, flush=True)
+    _secret_key = _secret_key or ""
     # Derive a separate JWT signing secret so it is never the raw login password.
     _jwt_secret = hmac.digest(_secret_key.encode(), b"wiki-jwt-v1", "sha256").hex()
     _session_days = int(frontend.get("session_days", 7))
@@ -62,7 +69,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if _no_auth:
             return await call_next(request)
-        if request.url.path.startswith("/auth/") or request.url.path == "/api/context":
+        # "/" is the static shell that renders the login form; all data routes stay protected.
+        if request.url.path in ("/", "/api/context") or request.url.path.startswith("/auth/"):
             return await call_next(request)
         token = request.cookies.get("wiki_session")
         if not token or not _verify_token(token):
@@ -94,7 +102,8 @@ async def login(request: Request):
         body = await request.json()
     except Exception:
         return JSONResponse({"error": "invalid_body"}, status_code=400)
-    if body.get("password") != _secret_key:
+    import hmac
+    if not hmac.compare_digest(str(body.get("password", "")).encode(), _secret_key.encode()):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     token = _make_token()
     resp = JSONResponse({"status": "ok"})

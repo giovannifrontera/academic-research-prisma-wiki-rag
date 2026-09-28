@@ -170,7 +170,7 @@ python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" lint --workspace "<W>" --full
 python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" serve --workspace "<W>" --host 127.0.0.1 --port 7331
 ```
 
-FastAPI espone grafo D3, pagine, statistiche, lint e WebSocket. `/api/context` accetta solo loopback. L'autenticazione è attiva salvo `--no-auth`; usa `WIKI_PASSWORD` anziché salvare password nel repository.
+FastAPI espone grafo D3, pagine, statistiche, lint e WebSocket. `/api/context` accetta solo loopback. Apri `http://127.0.0.1:7331` ed effettua il login: senza `WIKI_PASSWORD` a ogni avvio viene generata una password casuale stampata nel terminale (non esiste una password predefinita condivisa). L'autenticazione è attiva salvo `--no-auth`; usa `WIKI_PASSWORD` anziché salvare password nel repository.
 
 ---
 

@@ -216,3 +216,26 @@ def test_api_lint_conflict(server_client, monkeypatch):
         assert resp.status_code == 409
     finally:
         wiki_server._lint_busy = False
+
+
+def test_index_page_reachable_without_auth_so_login_form_can_load(auth_client):
+    resp = auth_client.get("/", cookies={})
+    assert resp.status_code == 200
+    assert 'id="login-overlay"' in resp.text
+    assert auth_client.get("/api/stats", cookies={}).status_code == 401  # data stays protected
+
+
+def test_default_password_is_random_not_changeme(tmp_workspace, monkeypatch):
+    import wiki_server
+    monkeypatch.delenv("WIKI_PASSWORD", raising=False)
+    cfg = json.loads((tmp_workspace / "wiki.config.json").read_text())
+    cfg.pop("frontend", None)
+    wiki_server.configure(str(tmp_workspace), cfg, no_auth=False)
+    first = wiki_server._secret_key
+    assert first != "changeme" and len(first) >= 16
+    wiki_server.configure(str(tmp_workspace), cfg, no_auth=False)
+    assert wiki_server._secret_key != first  # generated per run, never a shared constant
+    from fastapi.testclient import TestClient
+    client = TestClient(wiki_server.app)
+    assert client.post("/auth/login", json={"password": "changeme"}).status_code == 401
+    assert client.post("/auth/login", json={"password": wiki_server._secret_key}).status_code == 200

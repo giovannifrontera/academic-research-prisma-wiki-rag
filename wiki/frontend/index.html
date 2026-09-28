@@ -1102,7 +1102,9 @@ async function loadPage(d) {
   }
 
   /* Render markdown via marked + sanitize with DOMPurify before DOM insertion */
-  const rawHtml = marked.parse(data.content || '');
+  // Frontmatter is metadata (already shown in the header), not page body.
+  const body = (data.content || '').replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '');
+  const rawHtml = marked.parse(body);
   document.getElementById('pb').innerHTML = DOMPurify.sanitize(rawHtml);
 
   const pl = document.getElementById('pl');

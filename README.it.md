@@ -5,7 +5,7 @@
 ### Revisione sistematica, studi pilota e pubblicazione accademica assistiti dall'AI — con memoria persistente
 
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatibile-cc785c?style=flat-square&logo=anthropic&logoColor=white)](https://claude.ai/code)
-[![Release](https://img.shields.io/badge/release-v1.4.0-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.0)
+[![Release](https://img.shields.io/badge/release-v1.4.1-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.1)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![MCP](https://img.shields.io/badge/MCP-6_server-1a7f37?style=flat-square)](https://modelcontextprotocol.io)
 [![Qdrant](https://img.shields.io/badge/Qdrant-vectors-f4a261?style=flat-square)](https://qdrant.tech)
@@ -277,6 +277,7 @@ La CI esegue i test su Windows e Ubuntu con Python 3.11 e PyTorch CPU. La GPU vi
 - Server MCP arXiv e PubMed: otto banche dati, tutte con record JSON completi (PubMed con abstract integrali).
 - Le query arXiv semplici sono unite in AND invece che in OR.
 - Il reranking di `hybrid-rag query` valuta un pool di candidati più ampio dei risultati richiesti.
+- 1.4.1: il login dell'explorer web del wiki funziona di nuovo e non usa più una password predefinita condivisa.
 
 ## 📦 Release 1.3.0
 

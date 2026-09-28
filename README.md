@@ -5,7 +5,7 @@
 ### AI-powered systematic review, pilot study design, and preprint publication — with persistent knowledge memory
 
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-cc785c?style=flat-square&logo=anthropic&logoColor=white)](https://claude.ai/code)
-[![Release](https://img.shields.io/badge/release-v1.4.0-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.0)
+[![Release](https://img.shields.io/badge/release-v1.4.1-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.1)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![MCP](https://img.shields.io/badge/MCP-6_servers-1a7f37?style=flat-square)](https://modelcontextprotocol.io)
 [![Qdrant](https://img.shields.io/badge/Qdrant-vectors-f4a261?style=flat-square)](https://qdrant.tech)
@@ -351,6 +351,7 @@ GitHub Actions runs the Python suite on `ubuntu-latest` and `windows-latest` wit
 - arXiv and PubMed MCP servers: eight databases, all with complete JSON records (PubMed with full abstracts).
 - arXiv plain queries are ANDed instead of ORed.
 - `hybrid-rag query` reranking scores a candidate pool wider than the requested results.
+- 1.4.1: the wiki web explorer login works again and no longer falls back to a shared default password.
 
 ## 📦 Release 1.3.0
 

@@ -170,7 +170,7 @@ python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" lint --workspace "<W>" --full
 python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" serve --workspace "<W>" --host 127.0.0.1 --port 7331
 ```
 
-The FastAPI server exposes the D3 graph, page details, statistics, lint actions and WebSocket updates. `/api/context` accepts loopback callers only. Authentication is enabled unless `--no-auth` is selected; set `WIKI_PASSWORD` rather than storing a password in version control.
+The FastAPI server exposes the D3 graph, page details, statistics, lint actions and WebSocket updates. `/api/context` accepts loopback callers only. Open `http://127.0.0.1:7331` and log in: without `WIKI_PASSWORD` a random password is generated at every start and printed in the terminal (there is no shared default). Authentication is enabled unless `--no-auth` is selected; set `WIKI_PASSWORD` rather than storing a password in version control.
 
 ---
 

@@ -1,6 +1,6 @@
 # Stato sessione
 
-**Ultimo aggiornamento:** 2026-09-28 — release 1.4.0
+**Ultimo aggiornamento:** 2026-09-28 — release 1.4.1
 
 ## Stato
 
@@ -8,7 +8,8 @@
 - 1.3.0: corretto il server MCP Semantic Scholar, che usava l'API MCP 2.x incompatibile con `mcp<2`.
 - 1.3.1: il rerank di `hybrid-rag query` valuta `n_results × 3` candidati RRF (prima riordinava solo i `n_results` già selezionati).
 - 1.4.0: recuperati i server arXiv e PubMed dal ramo `origin/main` (mai unito a `master`, commit `1a02978`), adattati al contratto JSON e testati dal vivo. Su `origin/main` resta non unito anche il filone `research-design` (IMRaD): da valutare.
-- Suite locale (Linux, Python 3.14, torch CPU): 188 test verdi con `python -m pytest wiki/tests tests skills`.
+- 1.4.1: explorer web del wiki verificato in Chrome (login, grafo D3, dettaglio pagina, Stats, WebSocket live); corretti login bloccato, password predefinita `changeme` e frontmatter visibile.
+- Suite locale (Linux, Python 3.14, torch CPU): 190 test verdi con `python -m pytest wiki/tests tests skills`.
 - `claude plugin validate --strict` supera la validazione di `plugin.json` e `marketplace.json`.
 
 ## Aperto

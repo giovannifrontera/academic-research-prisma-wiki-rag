@@ -4,6 +4,24 @@ All notable plugin changes are documented here. Versions follow Semantic Version
 
 Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguono Semantic Versioning.
 
+## [1.4.1] - 2026-09-28
+
+### English
+
+#### Fixed
+
+- Wiki web explorer (`wiki.py serve`) was unusable with authentication on: the auth middleware also blocked `GET /`, so the browser received `{"error":"unauthorized"}` instead of the login form. The static page is now public; graph, page, stats, lint and WebSocket routes stay protected.
+- Removed the shared default password `changeme`: without `WIKI_PASSWORD` or a configured password, a random password is generated per run and printed to the terminal. Password check is now constant-time.
+- The page detail panel no longer renders YAML frontmatter as body text.
+
+### Italiano
+
+#### Corretto
+
+- L'explorer web del wiki (`wiki.py serve`) era inutilizzabile con l'autenticazione attiva: il middleware bloccava anche `GET /` e il browser riceveva `{"error":"unauthorized"}` invece del form di login. La pagina statica è ora pubblica; grafo, pagine, statistiche, lint e WebSocket restano protetti.
+- Eliminata la password predefinita condivisa `changeme`: senza `WIKI_PASSWORD` o password configurata, a ogni avvio ne viene generata una casuale stampata nel terminale. Confronto password a tempo costante.
+- Il pannello di dettaglio non mostra più il frontmatter YAML come testo della pagina.
+
 ## [1.4.0] - 2026-09-28
 
 ### English
@@ -119,6 +137,7 @@ Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguon
 - Pre-plugin development baseline; this tag was not present on the remote when 1.2.0 was prepared.
 - Baseline precedente alla conversione completa; il tag non risultava sul remoto durante la preparazione di 1.2.0.
 
+[1.4.1]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.1
 [1.4.0]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.0
 [1.3.0]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.3.0
 [1.2.0]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.2.0
