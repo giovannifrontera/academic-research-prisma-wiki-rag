@@ -51,3 +51,39 @@ def test_containing_study_root_found(tmp_path):
 
 def test_containing_study_root_none(tmp_path):
     assert containing_study_root(tmp_path) is None
+
+
+def _study(tmp_path, wiki="wiki-memory"):
+    import json
+    root = tmp_path / "my-study"
+    (root / "wiki-memory").mkdir(parents=True)
+    (root / "prisma").mkdir()
+    (root / ".project-state.json").write_text(json.dumps({
+        "study_name": "My Study", "study_slug": "my-study", "study_id": "uuid-1",
+        "paths": {"wiki_workspace": wiki},
+    }), encoding="utf-8")
+    return root
+
+def test_resolve_study_wiki_from_root_and_subdir(tmp_path):
+    from scripts.study_paths import resolve_study_wiki
+    root = _study(tmp_path)
+    expected = (root / "wiki-memory").resolve()
+    assert resolve_study_wiki(root) == expected
+    assert resolve_study_wiki(root / "prisma") == expected
+
+def test_resolve_study_wiki_requires_state(tmp_path):
+    from scripts.study_paths import resolve_study_wiki, StudyStateError
+    with pytest.raises(StudyStateError):
+        resolve_study_wiki(tmp_path)
+
+def test_resolve_study_wiki_rejects_escape(tmp_path):
+    from scripts.study_paths import resolve_study_wiki, PathEscapeError
+    root = _study(tmp_path, wiki="../elsewhere")
+    with pytest.raises(PathEscapeError):
+        resolve_study_wiki(root)
+
+def test_study_metadata(tmp_path):
+    from scripts.study_paths import study_metadata
+    root = _study(tmp_path)
+    assert study_metadata(root / "wiki-memory") == {"name": "My Study", "slug": "my-study", "id": "uuid-1"}
+    assert study_metadata(tmp_path) is None
