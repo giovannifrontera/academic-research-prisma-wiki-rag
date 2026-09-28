@@ -4,6 +4,34 @@ All notable plugin changes are documented here. Versions follow Semantic Version
 
 Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguono Semantic Versioning.
 
+## [1.3.0] - 2026-09-28
+
+### English
+
+#### Added
+
+- Isolated study workspace: `scripts/study_workspace.py create|inspect` creates a sealed `<study-slug>/` with its own `.project-state.json` and separate Qdrant stores (`database/qdrant-rag/`, `database/qdrant-wiki/`).
+- Mandatory wiki export before Hybrid RAG indexing (explicit `--skip-wiki-export` override).
+- `BAAI/bge-reranker-v2-m3` cross-encoder reranking on `hybrid-rag query`, matching the wiki.
+- Best-effort open-access full-text acquisition (`skills/prisma-review/scripts/fetch_fulltext.py`) with SSRF, size and content-type guards.
+
+#### Fixed
+
+- Semantic Scholar MCP server imported the MCP 2.x `MCPServer` API while `requirements.txt` pins `mcp<2`: the server failed to start. Restored `FastMCP`, like the other five servers.
+
+### Italiano
+
+#### Aggiunto
+
+- Study workspace isolato: `scripts/study_workspace.py create|inspect` crea una `<study-slug>/` sigillata con `.project-state.json` e Qdrant separati (`database/qdrant-rag/`, `database/qdrant-wiki/`).
+- Export wiki obbligatorio prima dell'indicizzazione Hybrid RAG (override esplicito `--skip-wiki-export`).
+- Reranking cross-encoder `BAAI/bge-reranker-v2-m3` anche su `hybrid-rag query`, come nel wiki.
+- Acquisizione best-effort del full-text open-access (`skills/prisma-review/scripts/fetch_fulltext.py`) con controlli SSRF, dimensione e content-type.
+
+#### Corretto
+
+- Il server MCP Semantic Scholar importava l'API MCP 2.x `MCPServer` mentre `requirements.txt` richiede `mcp<2`: il server non partiva. Ripristinato `FastMCP`, come negli altri cinque server.
+
 ## [1.2.0] - 2026-09-17
 
 ### English
@@ -64,4 +92,5 @@ Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguon
 - Pre-plugin development baseline; this tag was not present on the remote when 1.2.0 was prepared.
 - Baseline precedente alla conversione completa; il tag non risultava sul remoto durante la preparazione di 1.2.0.
 
+[1.3.0]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.3.0
 [1.2.0]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.2.0

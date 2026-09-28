@@ -5,7 +5,7 @@
 ### AI-powered systematic review, pilot study design, and preprint publication — with persistent knowledge memory
 
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-cc785c?style=flat-square&logo=anthropic&logoColor=white)](https://claude.ai/code)
-[![Release](https://img.shields.io/badge/release-v1.2.0-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.2.0)
+[![Release](https://img.shields.io/badge/release-v1.3.0-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.3.0)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![MCP](https://img.shields.io/badge/MCP-6_servers-1a7f37?style=flat-square)](https://modelcontextprotocol.io)
 [![Qdrant](https://img.shields.io/badge/Qdrant-vectors-f4a261?style=flat-square)](https://qdrant.tech)
@@ -342,6 +342,13 @@ GitHub Actions runs the Python suite on `ubuntu-latest` and `windows-latest` wit
 | [Plugin manifest](.claude-plugin/plugin.json) | Published skills and MCP server declarations |
 
 ---
+
+## 📦 Release 1.3.0
+
+- Isolated per-study workspace with separate RAG and wiki Qdrant stores.
+- Mandatory wiki export before RAG indexing and BGE reranking on `hybrid-rag query`.
+- Best-effort automatic open-access full-text download.
+- Fixed Semantic Scholar MCP server startup (FastMCP 1.x).
 
 ## 📦 Release 1.2.0
 

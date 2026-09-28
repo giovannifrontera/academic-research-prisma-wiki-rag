@@ -1,6 +1,6 @@
 # Python, models and portable paths
 
-> Release 1.2.0 · [English README](../README.md) · [Guida italiana](../README.it.md)
+> Release 1.3.0 · [English README](../README.md) · [Guida italiana](../README.it.md)
 
 Use Python 3.11+ and one activated virtual environment for installation, CLI commands and the Claude process that launches the MCP servers. Create the environment outside the installed plugin cache. Replace all example paths with your own absolute paths.
 
