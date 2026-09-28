@@ -5,6 +5,7 @@ API uses Apache Solr syntax for field-specific queries.
 """
 
 import json
+import re
 from typing import Literal
 import urllib.request
 import urllib.parse
@@ -15,6 +16,16 @@ mcp = FastMCP("eric")
 
 ERIC_API = "https://api.ies.ed.gov/eric/"
 DEFAULT_TIMEOUT = 30
+
+# Solr/Elasticsearch OR bare terms ("spaced repetition" -> spaced OR repetition),
+# which floods PRISMA counts. Plain queries are ANDed; explicit syntax passes through.
+_SYNTAX = re.compile(r'[:"()*]|\b(AND|OR|NOT)\b|(^|\s)[-+]\S')
+
+
+def _and_terms(query: str) -> str:
+    q = (query or "").strip()
+    return q if _SYNTAX.search(q) else " AND ".join(q.split())
+
 
 
 def _build_solr_query(
@@ -28,7 +39,8 @@ def _build_solr_query(
 ) -> str:
     parts = []
     if query:
-        parts.append(f'title:({query})' if title_only else f'({query})')
+        q = _and_terms(query)
+        parts.append(f'title:({q})' if title_only else f'({q})')
     if year_from or year_to:
         parts.append(f'publicationdateyear:[{year_from or "*"} TO {year_to or "*"}]')
     if education_level:
@@ -125,7 +137,7 @@ def eric_search(query: str, rows: int = 10, start: int = 0, output_format: Liter
     if output_format not in ("text", "json"):
         raise ValueError("output_format must be 'text' or 'json'")
     try:
-        data = _search(query, rows=rows, start=start)
+        data = _search(_and_terms(query), rows=rows, start=start)
         return _format_results(data, query, output_format)
     except RuntimeError as e:
         return f"Error: {e}"

@@ -17,18 +17,27 @@ from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("doaj")
 
-BASE_URL = "https://doaj.org/api/v3"
+BASE_URL = "https://doaj.org/api/v4"
 DEFAULT_TIMEOUT = 30
 
 
 def _get(endpoint: str, params: dict) -> dict:
-    url = f"{BASE_URL}/{endpoint}?" + urllib.parse.urlencode(params)
+    # DOAJ takes the Lucene query in the path (/search/articles/<query>);
+    # sending it as ?q= answers 404.
+    params = dict(params)
+    query = urllib.parse.quote(params.pop("q"), safe="")
+    url = f"{BASE_URL}/{endpoint}/{query}?" + urllib.parse.urlencode(params)
     req = urllib.request.Request(url, headers={"Accept": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
-        raise RuntimeError(f"DOAJ API error: HTTP {e.code} ({e.reason})") from e
+        detail = ""
+        try:
+            detail = str(json.loads(e.read().decode()).get("error", ""))
+        except Exception:
+            pass
+        raise RuntimeError(f"DOAJ API error: HTTP {e.code} ({detail or e.reason})") from e
     except urllib.error.URLError as e:
         raise RuntimeError(f"DOAJ API unreachable: {e.reason}") from e
     except TimeoutError:
@@ -105,17 +114,13 @@ def doaj_search_articles(
         raise ValueError("output_format must be 'text' or 'json'")
     try:
         q_parts = [query]
-        if year_from and year_to:
-            q_parts.append(f"year:[{year_from} TO {year_to}]")
-        elif year_from:
-            q_parts.append(f"year:[{year_from} TO *]")
-        elif year_to:
-            q_parts.append(f"year:[* TO {year_to}]")
+        if year_from or year_to:
+            # DOAJ rejects open ranges ("*" is a disallowed Lucene feature).
+            q_parts.append(f"bibjson.year:[{year_from or 0} TO {year_to or 9999}]")
         if country_publisher:
-            # FIX: quote country value in Lucene query
-            q_parts.append(f'index.country_code:"{country_publisher}"')
+            q_parts.append(f"bibjson.journal.country:{country_publisher}")
 
-        params = {"q": " AND ".join(q_parts), "pageSize": rows, "page": page, "sort": "score"}
+        params = {"q": " AND ".join(q_parts), "pageSize": rows, "page": page}
         data = _get("search/articles", params)
         results = data.get("results", [])
         total = data.get("total", 0)
@@ -147,14 +152,11 @@ def doaj_count(
     """
     try:
         q_parts = [query]
-        if year_from and year_to:
-            q_parts.append(f"year:[{year_from} TO {year_to}]")
-        elif year_from:
-            q_parts.append(f"year:[{year_from} TO *]")
-        elif year_to:
-            q_parts.append(f"year:[* TO {year_to}]")
+        if year_from or year_to:
+            # DOAJ rejects open ranges ("*" is a disallowed Lucene feature).
+            q_parts.append(f"bibjson.year:[{year_from or 0} TO {year_to or 9999}]")
         if country_publisher:
-            q_parts.append(f'index.country_code:"{country_publisher}"')
+            q_parts.append(f"bibjson.journal.country:{country_publisher}")
 
         params = {"q": " AND ".join(q_parts), "pageSize": 1, "page": 1}
         data = _get("search/articles", params)

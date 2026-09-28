@@ -11,8 +11,8 @@
 - 1.4.1: explorer web del wiki verificato in Chrome (login, grafo D3, dettaglio pagina, Stats, WebSocket live); corretti login bloccato, password predefinita `changeme` e frontmatter visibile.
 - 1.4.1: `serve --project` apre l'explorer sullo studio sigillato e ne mostra il nome (spec/plan `2026-09-28-study-scoped-wiki-explorer`).
 - 1.4.1: corretto `paths` in `.project-state.json` (`qdrant_rag`/`qdrant_wiki` invece della cartella inesistente `database/qdrant`).
-- 1.4.2: server OpenAIRE migrato alla Graph API v2 (la vecchia Search API è stata dismessa il 31/05/2026 e rispondeva 503 dopo 60 s).
-- Suite locale (Linux, Python 3.14, torch CPU): 200 test verdi con `python -m pytest wiki/tests tests skills`.
+- 1.4.2: server OpenAIRE migrato alla Graph API v2 (la vecchia Search API è stata dismessa il 31/05/2026 e rispondeva 503 dopo 60 s); DOAJ corretto (query nel percorso, 404 prima); ERIC e Zenodo con query semplici in AND (prima in OR, conteggi gonfiati di ~700 volte). Emersi dal collaudo in sandbox per la demo CRUI.
+- Suite locale (Linux, Python 3.14, torch CPU): 204 test verdi con `python -m pytest wiki/tests tests skills`.
 - `claude plugin validate --strict` supera la validazione di `plugin.json` e `marketplace.json`.
 
 ## Aperto

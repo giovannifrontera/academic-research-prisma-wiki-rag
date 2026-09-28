@@ -11,12 +11,16 @@ Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguon
 #### Fixed
 
 - OpenAIRE MCP server timed out on every request: OpenAIRE retired the legacy Search API (`/search/publications`) on 2026-05-31 and it now answers `503` after 60 s. The server now uses the Graph API v2 (`/graph/v2/researchProducts`, ~1 s per request) with the same tools and parameters; plain terms are ANDed, abstracts are cleaned of JATS markup, API error messages are reported.
+- DOAJ MCP server answered `404` to every search: the query was sent as `?q=` while DOAJ takes it in the path (`/api/v4/search/articles/<query>`). Also fixed the year filter (`bibjson.year`, explicit bounds: open `*` ranges are rejected), the article country filter (`bibjson.journal.country`) and removed `sort=score` (`400`).
+- ERIC and Zenodo combined plain terms with OR: "artificial intelligence e-learning higher education" matched 1,711,212 ERIC and 1,410,648 Zenodo records instead of ~2,400. Plain queries are now ANDed (as for arXiv); explicit syntax (quotes, AND/OR/NOT, fields, `-term`) passes through unchanged.
 
 ### Italiano
 
 #### Corretto
 
 - Il server MCP OpenAIRE andava in timeout a ogni richiesta: OpenAIRE ha dismesso la vecchia Search API (`/search/publications`) il 31/05/2026, che ora risponde `503` dopo 60 s. Il server usa ora la Graph API v2 (`/graph/v2/researchProducts`, ~1 s a richiesta) con gli stessi tool e parametri; i termini semplici sono in AND, gli abstract sono ripuliti dal markup JATS e i messaggi d'errore dell'API vengono riportati.
+- Il server MCP DOAJ rispondeva `404` a ogni ricerca: la query veniva inviata come `?q=` mentre DOAJ la vuole nel percorso (`/api/v4/search/articles/<query>`). Corretti anche il filtro anno (`bibjson.year`, con limiti espliciti: gli intervalli aperti `*` sono rifiutati), il filtro paese degli articoli (`bibjson.journal.country`) ed eliminato `sort=score` (`400`).
+- ERIC e Zenodo univano i termini semplici in OR: "artificial intelligence e-learning higher education" dava 1.711.212 record su ERIC e 1.410.648 su Zenodo invece di ~2.400. Ora le query semplici sono in AND (come per arXiv); la sintassi esplicita (virgolette, AND/OR/NOT, campi, `-termine`) resta invariata.
 
 ## [1.4.1] - 2026-09-28
 

@@ -20,6 +20,16 @@ mcp = FastMCP("zenodo")
 BASE_URL = "https://zenodo.org/api"
 DEFAULT_TIMEOUT = 30
 
+# Solr/Elasticsearch OR bare terms ("spaced repetition" -> spaced OR repetition),
+# which floods PRISMA counts. Plain queries are ANDed; explicit syntax passes through.
+_SYNTAX = re.compile(r'[:"()*]|\b(AND|OR|NOT)\b|(^|\s)[-+]\S')
+
+
+def _and_terms(query: str) -> str:
+    q = (query or "").strip()
+    return q if _SYNTAX.search(q) else " AND ".join(q.split())
+
+
 
 def _get(params: dict) -> dict:
     url = f"{BASE_URL}/records?" + urllib.parse.urlencode(params)
@@ -120,7 +130,7 @@ def zenodo_search(
     if output_format not in ("text", "json"):
         raise ValueError("output_format must be 'text' or 'json'")
     try:
-        q = query
+        q = _and_terms(query)
         if year_from and year_to:
             q += f" AND publication_date:[{year_from}-01-01 TO {year_to}-12-31]"
         elif year_from:
@@ -168,7 +178,7 @@ def zenodo_count(
         resource_type: "publication", "dataset", "software", etc.
     """
     try:
-        q = query
+        q = _and_terms(query)
         if year_from and year_to:
             q += f" AND publication_date:[{year_from}-01-01 TO {year_to}-12-31]"
         elif year_from:

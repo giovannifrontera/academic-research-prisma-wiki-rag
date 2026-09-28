@@ -172,3 +172,40 @@ def test_openaire_graph_api_params_and_normalization(monkeypatch):
     assert rec["doi"] == "10.1/oa" and rec["year"] == "2024" and rec["open_access"] is True
     module.openaire_search("x", open_access=False)
     assert "OPEN" not in seen["bestOpenAccessRightLabel"]
+
+
+def test_doaj_url_puts_query_in_path_with_explicit_year_bounds(monkeypatch):
+    # DOAJ answers 404 to ?q=, 400 to sort=score and rejects open "*" ranges.
+    module = load_server("doaj")
+    urls = []
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def read(self): return json.dumps({"results": [], "total": 0}).encode()
+    monkeypatch.setattr(module.urllib.request, "urlopen",
+                        lambda req, **k: urls.append(req.full_url) or Response())
+    module.doaj_search_articles("ai elearning", year_from=2020, country_publisher="IT", output_format="json")
+    url = module.urllib.parse.unquote(urls[0])
+    assert url.startswith("https://doaj.org/api/v4/search/articles/ai elearning AND bibjson.year:[2020 TO 9999]")
+    assert "bibjson.journal.country:IT" in url
+    assert "?q=" not in url and "sort=" not in url and "*" not in url
+
+
+@pytest.mark.parametrize("server", ["eric", "zenodo"])
+def test_plain_queries_are_anded(server):
+    # Both backends OR bare terms: "ai higher education" matched ~1.7M ERIC records.
+    module = load_server(server)
+    assert module._and_terms("ai higher education") == "ai AND higher AND education"
+    assert module._and_terms("e-learning ai") == "e-learning AND ai"
+    for explicit in ('"spaced repetition"', "ai OR ml", "title:chatbot", "ai -robots", "(a b)"):
+        assert module._and_terms(explicit) == explicit
+
+
+def test_eric_search_sends_anded_query(monkeypatch):
+    module = load_server("eric")
+    seen = []
+    monkeypatch.setattr(module, "_search", lambda q, **k: seen.append(q) or {"response": {"docs": [], "numFound": 0}})
+    module.eric_search("ai higher education")
+    module.eric_advanced_search("ai higher education", year_from=2020)
+    assert seen[0] == "ai AND higher AND education"
+    assert seen[1].startswith("(ai AND higher AND education) AND publicationdateyear:[2020")
