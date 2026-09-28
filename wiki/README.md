@@ -151,7 +151,7 @@ session-update --workspace <W> --op <type> --status <status> [--detail <json>]
 scan-inbox     --workspace <W>
 ingest-pdf     --workspace <W> --file <local-path-or-url>
 process-raw    --workspace <W>
-serve          --workspace <W> [--host 127.0.0.1] [--port 7331] [--no-auth]
+serve          --project <study> | --workspace <W> [--host 127.0.0.1] [--port 7331] [--no-auth]
 ```
 
 Examples:
@@ -171,10 +171,10 @@ The wiki ships a browser explorer: an interactive D3 graph of every page, with p
 ### Start it
 
 ```bash
-python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" serve --workspace "<W>" --host 127.0.0.1 --port 7331
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" serve --project "<study>" --host 127.0.0.1 --port 7331
 ```
 
-In a sealed study `<W>` is `<study-slug>/wiki-memory`. Open `http://127.0.0.1:7331` in the browser.
+In a sealed study `--project` is the standard entry point: pass the study root or any folder inside it and the server opens only that study's `wiki-memory` (resolved from `.project-state.json`, containment-checked). The header and the browser tab show the study name. To explore two studies at once, start one server per study on different `--port` values. `--workspace "<W>"` still works for a plain wiki. Open `http://127.0.0.1:7331` in the browser.
 
 ### Log in
 

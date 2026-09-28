@@ -1216,11 +1216,19 @@ function updateAgentName(name) {
   document.title = name + "'s Wiki Memory";
 }
 
+function updateStudy(study) {
+  if (!study || !study.name) return;
+  const sub = document.getElementById('agent-subtitle');
+  if (sub) { sub.textContent = 'Studio: ' + study.name; sub.title = study.slug; sub.style.display = 'block'; }
+  document.title = study.name + ' — Wiki Memory';
+}
+
 async function fetchGraph() {
   const resp = await fetch('/api/graph');
   if (resp.status === 401) { showLogin(); return; }
   const fresh = await resp.json();
   if (fresh.agent_name) updateAgentName(fresh.agent_name);
+  if (fresh.study) updateStudy(fresh.study);
   // Preserve D3 simulation positions so live graph_update doesn't snap nodes to random coords
   const posMap = new Map(graphData.nodes.map(n => [n.id, { x: n.x, y: n.y, vx: n.vx, vy: n.vy }]));
   fresh.nodes.forEach(n => { const p = posMap.get(n.id); if (p) Object.assign(n, p); });

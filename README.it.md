@@ -7,7 +7,7 @@
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatibile-cc785c?style=flat-square&logo=anthropic&logoColor=white)](https://claude.ai/code)
 [![Release](https://img.shields.io/badge/release-v1.4.1-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.1)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![MCP](https://img.shields.io/badge/MCP-6_server-1a7f37?style=flat-square)](https://modelcontextprotocol.io)
+[![MCP](https://img.shields.io/badge/MCP-8_server-1a7f37?style=flat-square)](https://modelcontextprotocol.io)
 [![Qdrant](https://img.shields.io/badge/Qdrant-vectors-f4a261?style=flat-square)](https://qdrant.tech)
 [![PRISMA](https://img.shields.io/badge/PRISMA-2020-8b1a1a?style=flat-square)](https://www.prisma-statement.org)
 [![Licenza](https://img.shields.io/badge/Licenza-AGPL_3.0-blue?style=flat-square)](LICENSE)
@@ -131,7 +131,7 @@ I modelli usano CUDA quando PyTorch e driver la espongono; la CPU resta un fallb
 
 ### Explorer web
 
-`wiki.py serve` apre una vista browser della memoria: grafo interattivo di pagine, link espliciti e similarità semantiche, con dettaglio, statistiche e lint, aggiornato in tempo reale mentre Claude lavora.
+`wiki.py serve --project <studio>` apre una vista browser della memoria di quello studio: grafo interattivo di pagine, link espliciti e similarità semantiche, con dettaglio, statistiche e lint, aggiornato in tempo reale mentre Claude lavora.
 
 ![Explorer web della wiki](wiki/docs/images/explorer-page.png)
 

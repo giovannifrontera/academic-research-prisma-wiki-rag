@@ -151,7 +151,7 @@ session-update --workspace <W> --op <tipo> --status <stato> [--detail <json>]
 scan-inbox     --workspace <W>
 ingest-pdf     --workspace <W> --file <path-locale-o-url>
 process-raw    --workspace <W>
-serve          --workspace <W> [--host 127.0.0.1] [--port 7331] [--no-auth]
+serve          --project <study> | --workspace <W> [--host 127.0.0.1] [--port 7331] [--no-auth]
 ```
 
 Esempi:
@@ -171,10 +171,10 @@ La wiki include un explorer web: un grafo D3 interattivo di tutte le pagine, con
 ### Avvio
 
 ```bash
-python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" serve --workspace "<W>" --host 127.0.0.1 --port 7331
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" serve --project "<study>" --host 127.0.0.1 --port 7331
 ```
 
-In uno studio sigillato `<W>` è `<study-slug>/wiki-memory`. Apri `http://127.0.0.1:7331` nel browser.
+In uno studio sigillato `--project` è il punto d'ingresso standard: indica la cartella dello studio o una sua sottocartella e il server apre solo il `wiki-memory` di quello studio (ricavato da `.project-state.json`, con controllo di containment). L'intestazione e la scheda del browser mostrano il nome dello studio. Per esplorare due studi insieme avvia un server per studio su `--port` diverse. `--workspace "<W>"` resta valido per una wiki non sigillata. Apri `http://127.0.0.1:7331` nel browser.
 
 ### Accesso
 

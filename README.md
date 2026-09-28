@@ -7,7 +7,7 @@
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-cc785c?style=flat-square&logo=anthropic&logoColor=white)](https://claude.ai/code)
 [![Release](https://img.shields.io/badge/release-v1.4.1-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.4.1)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![MCP](https://img.shields.io/badge/MCP-6_servers-1a7f37?style=flat-square)](https://modelcontextprotocol.io)
+[![MCP](https://img.shields.io/badge/MCP-8_servers-1a7f37?style=flat-square)](https://modelcontextprotocol.io)
 [![Qdrant](https://img.shields.io/badge/Qdrant-vectors-f4a261?style=flat-square)](https://qdrant.tech)
 [![PRISMA](https://img.shields.io/badge/PRISMA-2020-8b1a1a?style=flat-square)](https://www.prisma-statement.org)
 [![License](https://img.shields.io/badge/License-AGPL_3.0-blue?style=flat-square)](LICENSE)
@@ -177,7 +177,7 @@ Knowledge lives in two layers:
 
 ### Web explorer
 
-`wiki.py serve` opens a browser view of the memory: an interactive graph of pages, explicit links and semantic similarities, with page details, statistics and lint, updated live while Claude works.
+`wiki.py serve --project <study>` opens a browser view of that study's memory: an interactive graph of pages, explicit links and semantic similarities, with page details, statistics and lint, updated live while Claude works.
 
 ![Wiki web explorer](wiki/docs/images/explorer-page.png)
 

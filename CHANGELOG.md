@@ -18,7 +18,15 @@ Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguon
 
 - Documented the wiki web explorer (start, login, graph, page detail, stats, API and security) with screenshots in `wiki/README.md`, and linked it from the main README.
 
+#### Added
+
+- `wiki.py serve --project <study>` opens the explorer on a sealed study (study root or any subfolder), resolving `wiki-memory` from `.project-state.json` with containment checks; the header and browser tab show the study name (`study` field in `/api/graph`). One server per study.
+
 ### Italiano
+
+#### Aggiunto
+
+- `wiki.py serve --project <studio>` apre l'explorer su uno studio sigillato (cartella dello studio o sottocartella), ricavando `wiki-memory` da `.project-state.json` con controllo di containment; intestazione e scheda del browser mostrano il nome dello studio (campo `study` in `/api/graph`). Un server per studio.
 
 #### Corretto
 

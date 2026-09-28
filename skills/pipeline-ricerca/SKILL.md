@@ -53,6 +53,14 @@ Gestione degli esiti:
 
 Da questo punto in poi tutti i dati dello studio (prisma, sources, database, wiki-memory, synthesis, design, preprint, export) vivono sotto `project_root`; il codice del plugin resta l'unico confine esterno in lettura.
 
+Per esplorare nel browser la memoria wiki dello studio (grafo, pagine, statistiche) avvia, dall'interno dello studio:
+
+```bash
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" serve --project .
+```
+
+Il server apre solo il `wiki-memory` di questo studio e ne mostra il nome; un server per studio (porte diverse con `--port`). Guida completa: `wiki/README.it.md`, sezione "Server web locale".
+
 ---
 
 ## Stage 1 — `prisma-review`
