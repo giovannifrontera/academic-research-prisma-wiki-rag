@@ -221,6 +221,33 @@ def test_op_query_reranks_by_default_when_project_given(tmp_path, rag, monkeypat
     assert calls, "_rerank should be invoked by default when project is set (study mode)"
 
 
+def test_op_query_reranks_candidates_beyond_n_results(rag, monkeypatch, capsys):
+    from types import SimpleNamespace
+
+    docs = [{"id": d, "text": t, "meta": {}, "collection": "papers"}
+            for d, t in (("a", "alpha"), ("b", "beta"), ("c", "gamma"))]
+    backend = SimpleNamespace(
+        _client=SimpleNamespace(close=lambda: None),
+        count=lambda _: 3,
+        search=lambda *_: [{**d, "score": 0.9 - i / 10} for i, d in enumerate(docs)],
+        get_all=lambda *_: docs,
+        name=lambda: "fake",
+    )
+    monkeypatch.setattr(rag, "_backend_instance", backend)
+    monkeypatch.setattr(rag, "_load_config", lambda: {"rerank_enabled": True})
+    seen = []
+
+    def fake_rerank(query_text, candidates, top_k):
+        seen.append(len(candidates))
+        return [c for c in candidates if c["text"] == "gamma"][:top_k]
+
+    monkeypatch.setattr(rag, "_rerank", fake_rerank)
+    rag.op_query("some query", n_results=1, use_pdf=False)
+    assert seen and seen[0] > 1, "reranker must see more candidates than n_results"
+    out = capsys.readouterr().out
+    assert "### [1]" in out and "gamma" in out
+
+
 def test_index_prisma_refuses_without_wiki_export(tmp_path, hrt_module):
     from scripts.study_workspace import create_study
     result = create_study("My Study", tmp_path)

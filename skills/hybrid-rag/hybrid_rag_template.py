@@ -1123,8 +1123,17 @@ def op_query(
     # 3. RRF + output
     merged = _rrf_merge([dense_ranked, sparse_ranked], k=RRF_K)
 
+    # ponytail: rerank defaults on in study mode (project given) per spec, off
+    # otherwise (no project) to avoid slowing down non-study callers by
+    # default; cfg["rerank_enabled"] still overrides explicitly either way.
+    rerank_default = project is not None
+    use_rerank = cfg.get("rerank_enabled", rerank_default)
+    # The cross-encoder must see a wider pool than n_results, or it can only
+    # reorder the RRF top-n and never recover a relevant paper ranked below it.
+    pool = n_results * DENSE_FETCH_MULTIPLIER if use_rerank else n_results
+
     results = []
-    for rank, (doc_id, rrf_score) in enumerate(merged[:n_results], 1):
+    for rank, (doc_id, rrf_score) in enumerate(merged[:pool], 1):
         data = dense_map.get(doc_id, {})
         results.append({
             "rank":        rank,
@@ -1135,15 +1144,14 @@ def op_query(
             "collection":  data.get("collection", ""),
         })
 
-    # ponytail: rerank defaults on in study mode (project given) per spec, off
-    # otherwise (no project) to avoid slowing down non-study callers by
-    # default; cfg["rerank_enabled"] still overrides explicitly either way.
-    rerank_default = project is not None
-    if cfg.get("rerank_enabled", rerank_default) and results:
+    if use_rerank and results:
         try:
             results = _rerank(query, results, top_k=n_results)
+            for rank, r in enumerate(results, 1):
+                r["rank"] = rank
         except Exception as exc:
             print(f"AVVISO: reranking non riuscito, uso ordine RRF: {exc}")
+    results = results[:n_results]
 
     backend_label = f"{backend.name()}"
     if filter_str and db_filter:

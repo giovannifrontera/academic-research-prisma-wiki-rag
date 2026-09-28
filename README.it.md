@@ -5,7 +5,7 @@
 ### Revisione sistematica, studi pilota e pubblicazione accademica assistiti dall'AI — con memoria persistente
 
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatibile-cc785c?style=flat-square&logo=anthropic&logoColor=white)](https://claude.ai/code)
-[![Release](https://img.shields.io/badge/release-v1.3.0-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.3.0)
+[![Release](https://img.shields.io/badge/release-v1.3.1-informational?style=flat-square)](https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.3.1)
 [![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![MCP](https://img.shields.io/badge/MCP-6_server-1a7f37?style=flat-square)](https://modelcontextprotocol.io)
 [![Qdrant](https://img.shields.io/badge/Qdrant-vectors-f4a261?style=flat-square)](https://qdrant.tech)
@@ -276,6 +276,7 @@ La CI esegue i test su Windows e Ubuntu con Python 3.11 e PyTorch CPU. La GPU vi
 - Export wiki obbligatorio prima dell'indicizzazione RAG e reranking BGE anche su `hybrid-rag query`.
 - Download automatico best-effort dei full-text open-access.
 - Corretto l'avvio del server MCP Semantic Scholar (FastMCP 1.x).
+- 1.3.1: il reranking di `hybrid-rag query` valuta un pool di candidati più ampio dei risultati richiesti.
 
 ## 📦 Release 1.2.0
 

@@ -4,6 +4,20 @@ All notable plugin changes are documented here. Versions follow Semantic Version
 
 Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguono Semantic Versioning.
 
+## [1.3.1] - 2026-09-28
+
+### English
+
+#### Fixed
+
+- `hybrid-rag query` cross-encoder reranking now scores the top `n_results × 3` RRF candidates instead of only the top `n_results`, so it can recover relevant papers ranked below the cut-off rather than just reordering them. Result ranks are renumbered after reranking.
+
+### Italiano
+
+#### Corretto
+
+- Il reranking cross-encoder di `hybrid-rag query` valuta ora i primi `n_results × 3` candidati RRF invece dei soli `n_results`: può recuperare paper rilevanti sotto la soglia invece di limitarsi a riordinarli. I rank vengono rinumerati dopo il reranking.
+
 ## [1.3.0] - 2026-09-28
 
 ### English
@@ -92,5 +106,6 @@ Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguon
 - Pre-plugin development baseline; this tag was not present on the remote when 1.2.0 was prepared.
 - Baseline precedente alla conversione completa; il tag non risultava sul remoto durante la preparazione di 1.2.0.
 
+[1.3.1]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.3.1
 [1.3.0]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.3.0
 [1.2.0]: https://github.com/giovannifrontera/academic-research-prisma-wiki-rag/releases/tag/v1.2.0
