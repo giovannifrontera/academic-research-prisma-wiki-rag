@@ -4,6 +4,20 @@ All notable plugin changes are documented here. Versions follow Semantic Version
 
 Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguono Semantic Versioning.
 
+## [1.4.6] - 2026-09-29
+
+### English
+
+#### Fixed
+
+- `semantic_scholar_export` used the relevance search, which ignores boolean syntax (a boolean query returned 1 record) and stops at 1,000. It now uses the bulk endpoint (`/paper/search/bulk`): boolean queries (`"phrase"`, `+`, `|`, `-`, parentheses), token pagination, no 1,000 cap, and records include `publicationTypes`, `openAccessPdf` and `journal` for screening.
+
+### Italiano
+
+#### Corretto
+
+- `semantic_scholar_export` usava la ricerca per rilevanza, che ignora la sintassi booleana (una query booleana restituiva 1 record) e si ferma a 1.000. Ora usa l'endpoint bulk (`/paper/search/bulk`): query booleane (`"frase"`, `+`, `|`, `-`, parentesi), paginazione a token, niente tetto dei 1.000, e i record includono `publicationTypes`, `openAccessPdf` e `journal` per lo screening.
+
 ## [1.4.5] - 2026-09-29
 
 ### English

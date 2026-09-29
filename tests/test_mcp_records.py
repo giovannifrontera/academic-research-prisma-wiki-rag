@@ -270,15 +270,19 @@ def test_core_export_keeps_partial_pages_on_error(monkeypatch, tmp_path):
     assert len(json.loads(out.read_text(encoding="utf-8"))) == 200
 
 
-def test_semantic_scholar_export_follows_next_until_cap(monkeypatch, tmp_path):
+def test_semantic_scholar_export_uses_bulk_token_pagination(monkeypatch, tmp_path):
     s2 = load_server("semantic-scholar")
+    calls = []
     def fake_get(endpoint, params):
-        off = params["offset"]
-        return {"data": [RECORD] * params["limit"], "total": 5000, "offset": off, "next": off + params["limit"]}
+        calls.append((endpoint, params["token"]))
+        page = {None: ("t1", 1000), "t1": ("t2", 1000), "t2": (None, 500)}[params["token"]]
+        return {"total": 2500, "token": page[0], "data": [RECORD] * page[1]}
     monkeypatch.setattr(s2, "_get", fake_get)
-    summary = json.loads(s2.semantic_scholar_export("study", str(tmp_path / "raw_s2.json")))
-    assert summary["downloaded"] == 1000 and summary["capped"] and not summary["complete"]
-
+    summary = json.loads(s2.semantic_scholar_export('("generative AI" | chatbot) + university',
+                                                    str(tmp_path / "raw_s2.json")))
+    assert calls == [("paper/search/bulk", None), ("paper/search/bulk", "t1"), ("paper/search/bulk", "t2")]
+    assert summary["downloaded"] == 2500 and summary["complete"]
+    assert len(json.loads((tmp_path / "raw_s2.json").read_text(encoding="utf-8"))) == 2500
 
 def test_rate_limit_is_retried(monkeypatch):
     import urllib.error

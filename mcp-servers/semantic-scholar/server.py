@@ -33,13 +33,13 @@ BASE_URL = "https://api.semanticscholar.org/graph/v1"
 DEFAULT_TIMEOUT = 30
 RETRIES = 3
 PAGE_SIZE = 100
-SEARCH_CAP = 1000  # paper/search rejects offset + limit > 1000
 API_KEY = _env_key("SEMANTIC_SCHOLAR_API_KEY_PLUGIN", "SEMANTIC_SCHOLAR_API_KEY")
 CONFIGURE_HINT = (
     "set the key with `/plugin configure academic-research-prisma-wiki-rag` "
     "(or export SEMANTIC_SCHOLAR_API_KEY) and restart Claude Code"
 )
 FIELDS = "title,authors,year,venue,abstract,externalIds,paperId"
+EXPORT_FIELDS = FIELDS + ",publicationTypes,openAccessPdf,journal"
 
 if not API_KEY:
     print(
@@ -180,48 +180,53 @@ def semantic_scholar_export(
     year_from: int = None,
     year_to: int = None,
     fields_of_study: str = None,
+    max_records: int = 10000,
 ) -> str:
     """
-    Download all matching Semantic Scholar records (API cap: first 1000) to a
-    JSON file and return only the counts. Use this for the PRISMA Phase 1 bulk
-    download instead of paging semantic_scholar_search or calling the API from
-    scripts: the configured API key reaches only this server, and records
-    never pass through the conversation.
-    The file holds the list of records (same contract as raw_*.json). Log the
-    returned total/downloaded/query/retrieved_at in prisma_log.md.
+    Download ALL records matching a boolean query to a JSON file and return only
+    the counts. Uses the bulk search endpoint, which (unlike semantic_scholar_search,
+    a relevance search capped at 1,000) understands boolean syntax and has no
+    1,000 cap, so the PRISMA download is complete and reproducible.
+    Use it instead of paging semantic_scholar_search or calling the API from
+    scripts: the configured API key reaches only this server, and records never
+    pass through the conversation. The file holds the list of records (same
+    contract as raw_*.json). Log the returned total/downloaded/query/retrieved_at.
+
+    Query syntax (bulk): "phrase", + (AND), | (OR), - (NOT), ( ) grouping,
+    e.g. ("generative AI" | chatbot) + ("higher education" | university)
 
     Args:
-        query: Search terms, same syntax as semantic_scholar_search
+        query: Boolean query in bulk syntax
         output_path: JSON file to write (e.g. raw_semantic_scholar.json in the review folder)
         year_from: Start year
         year_to: End year
         fields_of_study: Comma-separated field(s), e.g. "Education,Computer Science"
+        max_records: Safety cap on downloaded records (default 10000)
     """
     try:
         year_range = f"{year_from or ''}-{year_to or ''}" if (year_from or year_to) else None
-        records, total, offset, error = [], None, 0, None
-        while offset is not None and offset < SEARCH_CAP and (total is None or offset < total):
+        records, total, token, error = [], None, None, None
+        while total is None or (token and len(records) < max_records):
             params = {"query": query, "year": year_range, "fieldsOfStudy": fields_of_study,
-                      "limit": min(PAGE_SIZE, SEARCH_CAP - offset), "offset": offset, "fields": FIELDS}
+                      "fields": EXPORT_FIELDS, "token": token}
             try:
-                data = _get("paper/search", params)
+                data = _get("paper/search/bulk", params)
             except RuntimeError as e:
                 if total is None:
                     raise
                 error = str(e)  # keep the pages already downloaded
                 break
-            page = data.get("data", []) or []
             total = data.get("total", 0)
-            records.extend(page)
-            offset = data.get("next") if page else None
+            records.extend((data.get("data") or [])[: max_records - len(records)])
+            token = data.get("token")
         path = Path(output_path).expanduser()
         path.parent.mkdir(parents=True, exist_ok=True)
-        summary = {"total": total, "downloaded": len(records), "query": query,
-                    "retrieved_at": datetime.now(timezone.utc).isoformat(), "error": error}
         path.write_text(json.dumps(records, ensure_ascii=False, indent=1), encoding="utf-8")
-        summary.update(path=str(path.resolve()), complete=len(records) >= total,
-                       capped=total > SEARCH_CAP)
-        return json.dumps(summary, ensure_ascii=False)
+        return json.dumps({
+            "total": total, "downloaded": len(records), "query": query,
+            "retrieved_at": datetime.now(timezone.utc).isoformat(), "error": error,
+            "path": str(path.resolve()), "complete": len(records) >= total,
+        }, ensure_ascii=False)
     except RuntimeError as e:
         return f"Error: {e}"
     except Exception as e:
