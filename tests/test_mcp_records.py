@@ -300,3 +300,18 @@ def test_rate_limit_is_retried(monkeypatch):
     monkeypatch.setattr(core.time, "sleep", lambda s: None)
     assert core._post("search/works", {}) == {"results": [], "totalHits": 0}
     assert len(attempts) == 3
+
+
+def test_pubmed_export_pages_to_file(monkeypatch, tmp_path):
+    pubmed = load_server("pubmed")
+    monkeypatch.setattr(pubmed.time, "sleep", lambda s: None)
+    def fake_esearch(term, retmax=10, retstart=0):
+        ids = [str(n) for n in range(retstart, min(retstart + retmax, 450))]
+        return {"count": "450", "idlist": ids, "querytranslation": "study[All Fields]"}
+    monkeypatch.setattr(pubmed, "_esearch", fake_esearch)
+    monkeypatch.setattr(pubmed, "_records", lambda ids: [dict(RECORD, id=i) for i in ids])
+    out = tmp_path / "raw_pubmed.json"
+    summary = json.loads(pubmed.pubmed_export("study", str(out), year_from=2020))
+    saved = json.loads(out.read_text(encoding="utf-8"))
+    assert summary["downloaded"] == len(saved) == summary["total"] == 450 and summary["complete"]
+    assert [r["id"] for r in saved] == [str(n) for n in range(450)]

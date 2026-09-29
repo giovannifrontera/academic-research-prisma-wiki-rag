@@ -9,6 +9,9 @@ Optional free API key (3 -> 10 req/s): https://www.ncbi.nlm.nih.gov/account/
 import json
 import os
 import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Literal
 import urllib.request
 import urllib.parse
@@ -29,6 +32,9 @@ def _env_key(*names: str) -> str:
 
 BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 DEFAULT_TIMEOUT = 30
+RETRIES = 3
+PAGE_SIZE = 200
+SEARCH_CAP = 9999  # esearch rejects retstart beyond 9,998 without the history server
 API_KEY = _env_key("NCBI_API_KEY_PLUGIN", "NCBI_API_KEY")
 EMAIL = _env_key("NCBI_EMAIL_PLUGIN", "NCBI_EMAIL")
 CONFIGURE_HINT = (
@@ -57,8 +63,14 @@ def _request(endpoint: str, params: dict) -> bytes:
     url = f"{BASE_URL}/{endpoint}?" + urllib.parse.urlencode(params)
     req = urllib.request.Request(url, headers={"User-Agent": "academic-research-prisma-wiki-rag (research use)"})
     try:
-        with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
-            return resp.read()
+        for attempt in range(RETRIES + 1):
+            try:
+                with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
+                    return resp.read()
+            except urllib.error.HTTPError as e:
+                if e.code != 429 or attempt == RETRIES:
+                    raise
+                time.sleep(_retry_after(e, attempt))
     except urllib.error.HTTPError as e:
         msg = f"PubMed API error: HTTP {e.code} ({e.reason})"
         if e.code == 429 and not API_KEY:
@@ -68,6 +80,13 @@ def _request(endpoint: str, params: dict) -> bytes:
         raise RuntimeError(f"PubMed API unreachable: {e.reason}") from e
     except TimeoutError:
         raise RuntimeError(f"PubMed API timeout after {DEFAULT_TIMEOUT}s") from None
+
+
+def _retry_after(e: urllib.error.HTTPError, attempt: int) -> float:
+    try:
+        return min(float(e.headers.get("Retry-After", "")), 60.0)
+    except (TypeError, ValueError, AttributeError):
+        return 2.0 * (attempt + 1)
 
 
 def _esearch(term: str, db: str = "pubmed", retmax: int = 10, retstart: int = 0) -> dict:
@@ -257,6 +276,66 @@ def pubmed_count(
         if year_from or year_to:
             parts.append(f"[{year_from or ''}-{year_to or ''}]")
         return " ".join(parts) + f": **{int(result.get('count') or 0)}**"
+    except RuntimeError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"Unexpected error: {e}"
+
+
+@mcp.tool()
+def pubmed_export(
+    query: str,
+    output_path: str,
+    year_from: int = None,
+    year_to: int = None,
+    article_type: str = None,
+) -> str:
+    """
+    Download all matching PubMed records (first 9,999) to a JSON file and return
+    only the counts. Use this for the PRISMA Phase 1 bulk download instead of
+    paging pubmed_search or calling E-utilities from scripts: the configured
+    NCBI key reaches only this server, and records never pass through the
+    conversation. The file holds the list of records (same contract as
+    raw_*.json). Log the returned total/downloaded/query/retrieved_at in prisma_log.md.
+
+    Args:
+        query: Search terms with optional PubMed field tags, same as pubmed_search
+        output_path: JSON file to write (e.g. raw_pubmed.json in the review folder)
+        year_from: Start publication year
+        year_to: End publication year
+        article_type: Publication type filter
+    """
+    try:
+        term = _term(query, year_from, year_to, article_type)
+        pause = 0.12 if API_KEY else 0.4  # NCBI: 10 req/s with a key, 3 without
+        records, total, offset, error, translation = [], None, 0, None, ""
+        while offset < SEARCH_CAP and (total is None or offset < total):
+            try:
+                result = _esearch(term, retmax=min(PAGE_SIZE, SEARCH_CAP - offset), retstart=offset)
+                ids = result.get("idlist") or []
+                time.sleep(pause)
+                page = _records(ids)
+                time.sleep(pause)
+            except RuntimeError as e:
+                if total is None:
+                    raise
+                error = str(e)  # keep the pages already downloaded
+                break
+            if total is None:
+                total = int(result.get("count") or 0)
+                translation = result.get("querytranslation", "")
+            records.extend(page)
+            if not ids:
+                break
+            offset += len(ids)
+        path = Path(output_path).expanduser()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(records, ensure_ascii=False, indent=1), encoding="utf-8")
+        return json.dumps({
+            "total": total, "downloaded": len(records), "query": query, "query_translation": translation,
+            "retrieved_at": datetime.now(timezone.utc).isoformat(), "error": error,
+            "path": str(path.resolve()), "complete": len(records) >= total, "capped": total > SEARCH_CAP,
+        }, ensure_ascii=False)
     except RuntimeError as e:
         return f"Error: {e}"
     except Exception as e:
