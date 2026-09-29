@@ -4,6 +4,20 @@ All notable plugin changes are documented here. Versions follow Semantic Version
 
 Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguono Semantic Versioning.
 
+## [1.4.7] - 2026-09-29
+
+### English
+
+#### Changed
+
+- `semantic_scholar_export` takes the same AND/OR/NOT query used for the other databases and translates it to bulk syntax (`+`, `|`, `-`) itself, leaving quoted phrases untouched; the summary reports the translated `bulk_query`. Bulk syntax still passes through.
+
+### Italiano
+
+#### Modificato
+
+- `semantic_scholar_export` accetta la stessa query AND/OR/NOT usata per le altre banche dati e la traduce da sé nella sintassi bulk (`+`, `|`, `-`), senza toccare le frasi tra virgolette; il riepilogo riporta la `bulk_query` tradotta. La sintassi bulk resta accettata.
+
 ## [1.4.6] - 2026-09-29
 
 ### English

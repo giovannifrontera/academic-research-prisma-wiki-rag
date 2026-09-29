@@ -7,6 +7,7 @@ Optional API key: https://www.semanticscholar.org/product/api
 """
 
 import json
+import re
 from typing import Literal
 import sys
 import urllib.request
@@ -78,6 +79,19 @@ def _get(endpoint: str, params: dict) -> dict:
         raise RuntimeError(f"Semantic Scholar API unreachable: {e.reason}") from e
     except TimeoutError:
         raise RuntimeError(f"Semantic Scholar API timeout after {DEFAULT_TIMEOUT}s") from None
+
+
+def _to_bulk_syntax(query: str) -> str:
+    """Translate the AND/OR/NOT syntax used for the other databases into bulk syntax
+    (+ | -); quoted phrases are left untouched and bulk syntax passes through."""
+    parts = re.split(r'("[^"]*")', query or "")
+    for i in range(0, len(parts), 2):  # even indexes are outside quotes
+        s = re.sub(r"\bAND\s+NOT\b", "+ -", parts[i])
+        s = re.sub(r"\bNOT\s+", "-", s)
+        s = re.sub(r"\bAND\b", "+", s)
+        parts[i] = re.sub(r"\bOR\b", "|", s)
+    out = " ".join("".join(parts).split())
+    return re.sub(r"(^|\s)-\s+", r"\1-", out)  # NOT binds to the next term
 
 
 def _retry_after(e: urllib.error.HTTPError, attempt: int) -> float:
@@ -192,11 +206,12 @@ def semantic_scholar_export(
     pass through the conversation. The file holds the list of records (same
     contract as raw_*.json). Log the returned total/downloaded/query/retrieved_at.
 
-    Query syntax (bulk): "phrase", + (AND), | (OR), - (NOT), ( ) grouping,
-    e.g. ("generative AI" | chatbot) + ("higher education" | university)
+    Query: the same boolean query used for the other databases, e.g.
+    ("generative AI" OR chatbot) AND ("higher education" OR university);
+    AND/OR/NOT are translated automatically (bulk syntax + | - also accepted).
 
     Args:
-        query: Boolean query in bulk syntax
+        query: Boolean query (AND/OR/NOT, quotes, parentheses)
         output_path: JSON file to write (e.g. raw_semantic_scholar.json in the review folder)
         year_from: Start year
         year_to: End year
@@ -205,9 +220,10 @@ def semantic_scholar_export(
     """
     try:
         year_range = f"{year_from or ''}-{year_to or ''}" if (year_from or year_to) else None
+        bulk_query = _to_bulk_syntax(query)
         records, total, token, error = [], None, None, None
         while total is None or (token and len(records) < max_records):
-            params = {"query": query, "year": year_range, "fieldsOfStudy": fields_of_study,
+            params = {"query": bulk_query, "year": year_range, "fieldsOfStudy": fields_of_study,
                       "fields": EXPORT_FIELDS, "token": token}
             try:
                 data = _get("paper/search/bulk", params)
@@ -223,7 +239,7 @@ def semantic_scholar_export(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(records, ensure_ascii=False, indent=1), encoding="utf-8")
         return json.dumps({
-            "total": total, "downloaded": len(records), "query": query,
+            "total": total, "downloaded": len(records), "query": query, "bulk_query": bulk_query,
             "retrieved_at": datetime.now(timezone.utc).isoformat(), "error": error,
             "path": str(path.resolve()), "complete": len(records) >= total,
         }, ensure_ascii=False)

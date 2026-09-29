@@ -327,3 +327,11 @@ def test_core_query_carries_filters_and_ands_plain_terms():
         "(learning AND analytics) AND yearPublished>=2020 AND yearPublished<=2021 AND language.code:it"
     assert core._build_query('"learning analytics" OR chatbot', 2020) == \
         '("learning analytics" OR chatbot) AND yearPublished>=2020'
+
+
+def test_semantic_scholar_bulk_syntax_translation():
+    s2 = load_server("semantic-scholar")
+    assert s2._to_bulk_syntax('("generative AI" OR chatbot) AND ("higher education" OR university) AND NOT "K-12"') == \
+        '("generative AI" | chatbot) + ("higher education" | university) + -"K-12"'
+    assert s2._to_bulk_syntax('"AND OR NOT inside quotes" AND x') == '"AND OR NOT inside quotes" + x'
+    assert s2._to_bulk_syntax('("a" | b) + c') == '("a" | b) + c'  # bulk syntax passes through
