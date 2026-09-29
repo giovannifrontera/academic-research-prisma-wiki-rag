@@ -8,6 +8,7 @@ Requires a free API key: https://core.ac.uk/services/api
 """
 
 import json
+import re
 from typing import Literal
 import sys
 import urllib.request
@@ -95,15 +96,23 @@ def _slim(record: dict) -> dict:
     return {k: v for k, v in record.items() if k not in HEAVY_FIELDS}
 
 
-def _filters(year_from=None, year_to=None, language=None) -> list:
-    filters = []
+# CORE v3 ignores the "filters" body field (same count with or without it) and ORs
+# bare terms ("learning analytics" -> 6.3M hits). Filters go into q; plain queries are ANDed.
+_SYNTAX = re.compile(r'[:"()*<>=]|\b(AND|OR|NOT)\b|(^|\s)[-+]\S')
+
+
+def _build_query(query: str, year_from=None, year_to=None, language=None) -> str:
+    q = (query or "").strip()
+    if not _SYNTAX.search(q):
+        q = " AND ".join(q.split())
+    parts = [f"({q})"] if q else []
     if year_from:
-        filters.append({"field": "yearPublished", "value": year_from, "operation": "GREATER_OR_EQUAL"})
+        parts.append(f"yearPublished>={int(year_from)}")
     if year_to:
-        filters.append({"field": "yearPublished", "value": year_to, "operation": "LESS_OR_EQUAL"})
+        parts.append(f"yearPublished<={int(year_to)}")
     if language:
-        filters.append({"field": "language.code", "value": language, "operation": "EQUALS"})
-    return filters
+        parts.append(f"language.code:{re.sub(r'[^A-Za-z-]', '', language)}")
+    return " AND ".join(parts)
 
 
 def _format_results(results: list, label: str, total: int) -> str:
@@ -172,7 +181,7 @@ def core_search(
     if output_format not in ("text", "json"):
         raise ValueError("output_format must be 'text' or 'json'")
     try:
-        payload = {"q": query, "limit": rows, "offset": offset, "filters": _filters(year_from, year_to, language)}
+        payload = {"q": _build_query(query, year_from, year_to, language), "limit": rows, "offset": offset}
         data = _post("search/works", payload)
         results = [_slim(r) for r in data.get("results", [])]
         total = data.get("totalHits", 0)
@@ -201,7 +210,7 @@ def core_count(
         year_to: End year
     """
     try:
-        payload = {"q": query, "limit": 1, "offset": 0, "filters": _filters(year_from, year_to)}
+        payload = {"q": _build_query(query, year_from, year_to), "limit": 1, "offset": 0}
         data = _post("search/works", payload)
         total = data.get("totalHits", 0)
         parts = [f"CORE — results for '{query}'"]
@@ -241,12 +250,12 @@ def core_export(
         max_records: Safety cap on downloaded records (default 5000)
     """
     try:
-        filters = _filters(year_from, year_to, language)
+        q = _build_query(query, year_from, year_to, language)
         records, total, offset, error = [], None, 0, None
         while total is None or (offset < total and len(records) < max_records):
             limit = min(PAGE_SIZE, max_records - len(records))
             try:
-                data = _post("search/works", {"q": query, "limit": limit, "offset": offset, "filters": filters})
+                data = _post("search/works", {"q": q, "limit": limit, "offset": offset})
             except RuntimeError as e:
                 if total is None:
                     raise
@@ -261,7 +270,7 @@ def core_export(
         path = Path(output_path).expanduser()
         path.parent.mkdir(parents=True, exist_ok=True)
         summary = {"total": total, "downloaded": len(records), "query": query,
-                    "filters": filters, "retrieved_at": datetime.now(timezone.utc).isoformat(), "error": error}
+                    "core_query": q, "retrieved_at": datetime.now(timezone.utc).isoformat(), "error": error}
         path.write_text(json.dumps(records, ensure_ascii=False, indent=1), encoding="utf-8")
         summary.update(path=str(path.resolve()), complete=len(records) >= total)
         return json.dumps(summary, ensure_ascii=False)

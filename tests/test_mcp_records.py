@@ -254,7 +254,7 @@ def test_core_export_pages_to_file_without_heavy_fields(monkeypatch, tmp_path):
     assert calls == [0, 100, 200]
     assert summary["downloaded"] == len(saved) == 250 and summary["complete"]
     assert saved[0] == RECORD  # fullText/references dropped, rest intact
-    assert summary["total"] == 250 and summary["filters"][0]["value"] == 2020
+    assert summary["total"] == 250 and summary["core_query"] == "(study) AND yearPublished>=2020"
 
 
 def test_core_export_keeps_partial_pages_on_error(monkeypatch, tmp_path):
@@ -315,3 +315,11 @@ def test_pubmed_export_pages_to_file(monkeypatch, tmp_path):
     saved = json.loads(out.read_text(encoding="utf-8"))
     assert summary["downloaded"] == len(saved) == summary["total"] == 450 and summary["complete"]
     assert [r["id"] for r in saved] == [str(n) for n in range(450)]
+
+
+def test_core_query_carries_filters_and_ands_plain_terms():
+    core = load_server("core")
+    assert core._build_query("learning analytics", 2020, 2021, "it") == \
+        "(learning AND analytics) AND yearPublished>=2020 AND yearPublished<=2021 AND language.code:it"
+    assert core._build_query('"learning analytics" OR chatbot', 2020) == \
+        '("learning analytics" OR chatbot) AND yearPublished>=2020'

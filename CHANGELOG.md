@@ -12,8 +12,13 @@ Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguon
 
 - `skills/prisma-review/scripts/prisma_screening.py`: bundled, tested Phase 2 script (normalization of the eight `raw_*.json` formats and manual PDFs, DOI/title deduplication, agreed filters: years, declared languages, declared publication types, `--peer-reviewed-only`, `--arxiv-published-only`, optional open-access PDF download). `--census` lists declared languages and types. Language and type are judged only when a record declares them; nothing is inferred.
 
+#### Fixed
+
+- CORE ignored year and language filters: API v3 drops the `filters` body field (6,355,069 hits with or without it). Filters now go into the query (`yearPublished>=`, `language.code:`), and plain multi-word queries are ANDed instead of ORed (`learning analytics`: 6.3M → 54,923).
+
 #### Changed
 
+- The review skill's query rules: specific outcome terms, every concept block in every database (also when splitting OpenAIRE queries), no `title:`/`abstract:` OR on CORE, compare counts before downloading.
 - The review skill runs the bundled script in Phase 2 instead of writing a new screening script for each study, so PRISMA counts are reproducible and no exclusion criterion is invented.
 
 ### Italiano
@@ -22,8 +27,13 @@ Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguon
 
 - `skills/prisma-review/scripts/prisma_screening.py`: script di Fase 2 incluso e testato (normalizzazione degli otto formati `raw_*.json` e dei PDF manuali, deduplicazione per DOI/titolo, filtri concordati: anni, lingue dichiarate, tipi dichiarati, `--peer-reviewed-only`, `--arxiv-published-only`, download facoltativo dei PDF open access). `--census` elenca lingue e tipi dichiarati. Lingua e tipo si valutano solo se il record li dichiara: niente viene dedotto.
 
+#### Corretto
+
+- CORE ignorava i filtri anno e lingua: l'API v3 scarta il campo `filters` (6.355.069 risultati con o senza). I filtri ora entrano nella query (`yearPublished>=`, `language.code:`) e le query semplici di più parole sono in AND invece che in OR (`learning analytics`: 6,3 milioni → 54.923).
+
 #### Modificato
 
+- Regole della skill per le query: termini outcome specifici, tutti i blocchi di concetti in ogni banca dati (anche dividendo le query OpenAIRE), niente `title:`/`abstract:` in OR su CORE, confronto dei conteggi prima di scaricare.
 - La skill di revisione esegue in Fase 2 lo script incluso invece di scriverne uno nuovo per ogni studio: i conteggi PRISMA sono riproducibili e nessun criterio di esclusione viene inventato.
 
 ## [1.4.4] - 2026-09-29

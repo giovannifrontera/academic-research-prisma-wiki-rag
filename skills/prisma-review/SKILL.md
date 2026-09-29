@@ -306,6 +306,12 @@ Costruisci le query adattando i parametri. Per gli otto server inclusi usa `outp
 | `doaj` | `doaj_search_articles` | `query`, `year_from`, `year_to`, `country_publisher="IT"` per riviste italiane |
 | `zenodo` | `zenodo_search` | `query`, `year_from`, `year_to`, `resource_type="publication"` |
 
+**Regole per le query (precisione del corpus):**
+- Termini outcome **specifici**, mai generici da soli: `"academic performance"`, `"student performance"`, `"academic achievement"`, `"learning outcomes"` — non `performance` o `achievement` da soli, che trovano anche la *performance del modello* AI.
+- Ogni banca dati riceve **tutti i blocchi di concetti** (popolazione, intervento, contesto, outcome). Se un'API limita gli operatori (OpenAIRE), dividi in sotto-query **mantenendo il blocco outcome** in ognuna.
+- **CORE:** anni e lingua passano dai parametri del tool, che li inseriscono nella query (l'API v3 ignora i filtri separati). Non combinare `title:` e `abstract:` in OR: l'API restituisce conteggi incoerenti (più del testo completo). Usa la ricerca standard o `title:` da solo.
+- Prima di scaricare, confronta i conteggi (`*_count`) con quelli attesi: un totale di ordini di grandezza sopra gli altri database indica una query troppo larga.
+
 ### ⚠️ MCP server non disponibile — gestione errori
 
 Se un tool MCP restituisce errore o non risponde durante FASE 1:
