@@ -14,6 +14,9 @@ import urllib.request
 import urllib.parse
 import urllib.error
 import os
+import time
+from datetime import datetime, timezone
+from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("core")
@@ -29,6 +32,9 @@ def _env_key(*names: str) -> str:
 
 BASE_URL = "https://api.core.ac.uk/v3"
 DEFAULT_TIMEOUT = 30
+RETRIES = 3
+PAGE_SIZE = 100
+HEAVY_FIELDS = ("fullText", "references")
 API_KEY = _env_key("CORE_API_KEY_PLUGIN", "CORE_API_KEY")
 CONFIGURE_HINT = (
     "set the key with `/plugin configure academic-research-prisma-wiki-rag` "
@@ -58,8 +64,14 @@ def _post(endpoint: str, payload: dict) -> dict:
     data = json.dumps(payload).encode()
     req = urllib.request.Request(url, data=data, headers=_headers(), method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
-            return json.loads(resp.read().decode())
+        for attempt in range(RETRIES + 1):
+            try:
+                with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
+                    return json.loads(resp.read().decode())
+            except urllib.error.HTTPError as e:
+                if e.code != 429 or attempt == RETRIES:
+                    raise
+                time.sleep(_retry_after(e, attempt))
     except urllib.error.HTTPError as e:
         msg = f"CORE API error: HTTP {e.code} ({e.reason})"
         if e.code == 429 and not API_KEY:
@@ -69,6 +81,29 @@ def _post(endpoint: str, payload: dict) -> dict:
         raise RuntimeError(f"CORE API unreachable: {e.reason}") from e
     except TimeoutError:
         raise RuntimeError(f"CORE API timeout after {DEFAULT_TIMEOUT}s") from None
+
+
+def _retry_after(e: urllib.error.HTTPError, attempt: int) -> float:
+    try:
+        return min(float(e.headers.get("Retry-After", "")), 60.0)
+    except (TypeError, ValueError, AttributeError):
+        return 5.0 * (attempt + 1)
+
+
+def _slim(record: dict) -> dict:
+    """Drop fields that are huge and unused for screening (~3-4k tokens per record)."""
+    return {k: v for k, v in record.items() if k not in HEAVY_FIELDS}
+
+
+def _filters(year_from=None, year_to=None, language=None) -> list:
+    filters = []
+    if year_from:
+        filters.append({"field": "yearPublished", "value": year_from, "operation": "GREATER_OR_EQUAL"})
+    if year_to:
+        filters.append({"field": "yearPublished", "value": year_to, "operation": "LESS_OR_EQUAL"})
+    if language:
+        filters.append({"field": "language.code", "value": language, "operation": "EQUALS"})
+    return filters
 
 
 def _format_results(results: list, label: str, total: int) -> str:
@@ -137,16 +172,9 @@ def core_search(
     if output_format not in ("text", "json"):
         raise ValueError("output_format must be 'text' or 'json'")
     try:
-        filters = []
-        if year_from:
-            filters.append({"field": "yearPublished", "value": year_from, "operation": "GREATER_OR_EQUAL"})
-        if year_to:
-            filters.append({"field": "yearPublished", "value": year_to, "operation": "LESS_OR_EQUAL"})
-        if language:
-            filters.append({"field": "language.code", "value": language, "operation": "EQUALS"})
-        payload = {"q": query, "limit": rows, "offset": offset, "filters": filters}
+        payload = {"q": query, "limit": rows, "offset": offset, "filters": _filters(year_from, year_to, language)}
         data = _post("search/works", payload)
-        results = data.get("results", [])
+        results = [_slim(r) for r in data.get("results", [])]
         total = data.get("totalHits", 0)
         if output_format == "json":
             return json.dumps({"records": results, "total": total, "offset": offset, "limit": rows}, ensure_ascii=False)
@@ -173,18 +201,70 @@ def core_count(
         year_to: End year
     """
     try:
-        filters = []
-        if year_from:
-            filters.append({"field": "yearPublished", "value": year_from, "operation": "GREATER_OR_EQUAL"})
-        if year_to:
-            filters.append({"field": "yearPublished", "value": year_to, "operation": "LESS_OR_EQUAL"})
-        payload = {"q": query, "limit": 1, "offset": 0, "filters": filters}
+        payload = {"q": query, "limit": 1, "offset": 0, "filters": _filters(year_from, year_to)}
         data = _post("search/works", payload)
         total = data.get("totalHits", 0)
         parts = [f"CORE — results for '{query}'"]
         if year_from or year_to:
             parts.append(f"[{year_from or ''}-{year_to or ''}]")
         return " ".join(parts) + f": **{total}**"
+    except RuntimeError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"Unexpected error: {e}"
+
+
+@mcp.tool()
+def core_export(
+    query: str,
+    output_path: str,
+    year_from: int = None,
+    year_to: int = None,
+    language: str = None,
+    max_records: int = 5000,
+) -> str:
+    """
+    Download ALL matching CORE records to a JSON file and return only the counts.
+    Use this for the PRISMA Phase 1 bulk download instead of paging core_search
+    or calling the CORE API from scripts: the configured API key reaches only
+    this server, and records never pass through the conversation.
+    The file holds the list of records (same contract as raw_*.json);
+    fullText and references are dropped from each record. Log the returned
+    total/downloaded/query/retrieved_at in prisma_log.md.
+
+    Args:
+        query: Search terms, same syntax as core_search
+        output_path: JSON file to write (e.g. raw_core.json in the review folder)
+        year_from: Start year
+        year_to: End year
+        language: Language code (e.g. "it")
+        max_records: Safety cap on downloaded records (default 5000)
+    """
+    try:
+        filters = _filters(year_from, year_to, language)
+        records, total, offset, error = [], None, 0, None
+        while total is None or (offset < total and len(records) < max_records):
+            limit = min(PAGE_SIZE, max_records - len(records))
+            try:
+                data = _post("search/works", {"q": query, "limit": limit, "offset": offset, "filters": filters})
+            except RuntimeError as e:
+                if total is None:
+                    raise
+                error = str(e)  # keep the pages already downloaded
+                break
+            page = data.get("results", [])
+            total = data.get("totalHits", 0)
+            records.extend(_slim(r) for r in page)
+            if not page:
+                break
+            offset += len(page)
+        path = Path(output_path).expanduser()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        summary = {"total": total, "downloaded": len(records), "query": query,
+                    "filters": filters, "retrieved_at": datetime.now(timezone.utc).isoformat(), "error": error}
+        path.write_text(json.dumps(records, ensure_ascii=False, indent=1), encoding="utf-8")
+        summary.update(path=str(path.resolve()), complete=len(records) >= total)
+        return json.dumps(summary, ensure_ascii=False)
     except RuntimeError as e:
         return f"Error: {e}"
     except Exception as e:

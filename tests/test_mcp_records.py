@@ -235,5 +235,68 @@ def test_rate_limit_without_key_tells_how_to_configure(monkeypatch):
     def too_many(*args, **kwargs):
         raise urllib.error.HTTPError("u", 429, "Too Many Requests", {}, None)
     monkeypatch.setattr(core.urllib.request, "urlopen", too_many)
+    monkeypatch.setattr(core.time, "sleep", lambda s: None)
     with pytest.raises(RuntimeError, match="/plugin configure"):
         core._post("search/works", {})
+
+
+def test_core_export_pages_to_file_without_heavy_fields(monkeypatch, tmp_path):
+    core = load_server("core")
+    heavy = dict(RECORD, fullText="x" * 10_000, references=[{"id": n} for n in range(50)])
+    calls = []
+    def fake_post(endpoint, payload):
+        calls.append(payload["offset"])
+        return {"results": [heavy] * min(payload["limit"], 250 - payload["offset"]), "totalHits": 250}
+    monkeypatch.setattr(core, "_post", fake_post)
+    out = tmp_path / "sub" / "raw_core.json"
+    summary = json.loads(core.core_export("study", str(out), year_from=2020))
+    saved = json.loads(out.read_text(encoding="utf-8"))
+    assert calls == [0, 100, 200]
+    assert summary["downloaded"] == len(saved) == 250 and summary["complete"]
+    assert saved[0] == RECORD  # fullText/references dropped, rest intact
+    assert summary["total"] == 250 and summary["filters"][0]["value"] == 2020
+
+
+def test_core_export_keeps_partial_pages_on_error(monkeypatch, tmp_path):
+    core = load_server("core")
+    def fake_post(endpoint, payload):
+        if payload["offset"] >= 200:
+            raise RuntimeError("CORE API error: HTTP 500")
+        return {"results": [RECORD] * payload["limit"], "totalHits": 300}
+    monkeypatch.setattr(core, "_post", fake_post)
+    out = tmp_path / "raw_core.json"
+    summary = json.loads(core.core_export("study", str(out)))
+    assert summary["downloaded"] == 200 and not summary["complete"] and "500" in summary["error"]
+    assert len(json.loads(out.read_text(encoding="utf-8"))) == 200
+
+
+def test_semantic_scholar_export_follows_next_until_cap(monkeypatch, tmp_path):
+    s2 = load_server("semantic-scholar")
+    def fake_get(endpoint, params):
+        off = params["offset"]
+        return {"data": [RECORD] * params["limit"], "total": 5000, "offset": off, "next": off + params["limit"]}
+    monkeypatch.setattr(s2, "_get", fake_get)
+    summary = json.loads(s2.semantic_scholar_export("study", str(tmp_path / "raw_s2.json")))
+    assert summary["downloaded"] == 1000 and summary["capped"] and not summary["complete"]
+
+
+def test_rate_limit_is_retried(monkeypatch):
+    import urllib.error
+    core = load_server("core")
+    attempts = []
+    class Response:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def read(self):
+            return b'{"results": [], "totalHits": 0}'
+    def flaky(*args, **kwargs):
+        attempts.append(1)
+        if len(attempts) < 3:
+            raise urllib.error.HTTPError("u", 429, "Too Many Requests", {"Retry-After": "0"}, None)
+        return Response()
+    monkeypatch.setattr(core.urllib.request, "urlopen", flaky)
+    monkeypatch.setattr(core.time, "sleep", lambda s: None)
+    assert core._post("search/works", {}) == {"results": [], "totalHits": 0}
+    assert len(attempts) == 3

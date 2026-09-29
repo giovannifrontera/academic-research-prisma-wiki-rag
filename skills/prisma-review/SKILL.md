@@ -297,12 +297,12 @@ Costruisci le query adattando i parametri. Per gli otto server inclusi usa `outp
 
 | Database | Tool MCP | Parametri chiave |
 |----------|----------|-----------------|
-| `semantic-scholar` | `semantic_scholar_search` | `query`, `year_from`, `year_to`, `fields_of_study` (stringa), `limit`, `output_format="json"` |
+| `semantic-scholar` | `semantic_scholar_search` (anteprima) / **`semantic_scholar_export`** (download completo su file, max 1.000) | `query`, `year_from`, `year_to`, `fields_of_study` (stringa), `limit`, `output_format="json"`; export: `output_path` |
 | `arxiv` | `arxiv_search` | `query` (termini semplici uniti in AND; sintassi `ti:`/`abs:`/`au:` accettata), `category` (es. `cs.CY`), `year_from`, `year_to`, `rows` (max 100), `offset` — attendere ~3 s tra chiamate |
 | `pubmed` | `pubmed_search` | `query` con tag `[tiab]`/`[mh]`, `year_from`, `year_to`, `article_type`, `rows` (max 200), `offset` — chiave NCBI opzionale (`/plugin configure`) |
 | `eric` | `eric_advanced_search` | `query`, `rows` (max 200), `start`, `year_from`, `year_to`, `education_level`, `pub_type`, `language`, `title_only` |
 | `openaire` | `openaire_search` | `query`, `year_from`, `year_to`, `country="IT"` per fonti italiane |
-| `core` | `core_search` | `query`, `year_from`, `year_to`, `language="it"` — chiave CORE gratuita consigliata (`/plugin configure`) |
+| `core` | `core_search` (anteprima) / **`core_export`** (download completo su file) | `query`, `year_from`, `year_to`, `language="it"`; export: `output_path`, `max_records` — chiave CORE gratuita consigliata (`/plugin configure`) |
 | `doaj` | `doaj_search_articles` | `query`, `year_from`, `year_to`, `country_publisher="IT"` per riviste italiane |
 | `zenodo` | `zenodo_search` | `query`, `year_from`, `year_to`, `resource_type="publication"` |
 
@@ -396,6 +396,8 @@ raw_core.json               ← lista di oggetti dal MCP core
 raw_doaj.json               ← lista di oggetti dal MCP doaj
 raw_zenodo.json             ← lista di oggetti dal MCP zenodo
 ```
+
+**CORE e Semantic Scholar: usa sempre i tool di export** — `core_export(query, output_path="raw_core.json", ...)` e `semantic_scholar_export(query, output_path="raw_semantic_scholar.json", ...)` scaricano tutte le pagine e scrivono direttamente il file, restituendo solo i conteggi (`total`, `downloaded`, `complete`, `error`). **Non scrivere script che chiamano le API CORE o Semantic Scholar**: la chiave configurata con `/plugin configure` arriva solo al server MCP, non alla shell, e uno script riceverebbe 429. Non paginare nemmeno `core_search` per il download completo: i record passerebbero dalla conversazione. Se `complete` è `false`, riporta nel log `downloaded`/`total` ed `error` (o il limite di 1.000 per Semantic Scholar, `capped`).
 
 **Perché è critico:** Lo script di deduplicazione in Fase 2 legge questi file. Se non esistono, la Fase 2 non può partire e il corpus andrà perso al termine della sessione.
 

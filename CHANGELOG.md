@@ -4,6 +4,30 @@ All notable plugin changes are documented here. Versions follow Semantic Version
 
 Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguono Semantic Versioning.
 
+## [1.4.4] - 2026-09-29
+
+### English
+
+#### Added
+
+- `core_export` and `semantic_scholar_export` download every matching record (Semantic Scholar: first 1,000) straight to a `raw_*.json` file and return only the counts, so bulk downloads use the configured API key (which reaches only the MCP server, not the shell) and records never pass through the conversation. Pages already downloaded are kept if a later page fails.
+
+#### Changed
+
+- CORE records drop `fullText` and `references` (~3-4k tokens each, unused for screening); CORE and Semantic Scholar retry `429` responses up to three times, honouring `Retry-After`.
+- The review skill uses the export tools for CORE and Semantic Scholar and no longer writes scripts that call those APIs.
+
+### Italiano
+
+#### Aggiunto
+
+- `core_export` e `semantic_scholar_export` scaricano tutti i record (Semantic Scholar: primi 1.000) direttamente in un file `raw_*.json` e restituiscono solo i conteggi: il download completo usa la chiave configurata (che arriva solo al server MCP, non alla shell) e i record non passano dalla conversazione. Le pagine già scaricate si conservano se una pagina successiva fallisce.
+
+#### Modificato
+
+- I record CORE non includono più `fullText` e `references` (~3-4k token ciascuno, inutili per lo screening); CORE e Semantic Scholar ritentano fino a tre volte le risposte `429`, rispettando `Retry-After`.
+- La skill di revisione usa i tool di export per CORE e Semantic Scholar e non scrive più script che chiamano quelle API.
+
 ## [1.4.3] - 2026-09-29
 
 ### English

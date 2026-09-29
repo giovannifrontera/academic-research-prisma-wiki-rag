@@ -13,6 +13,9 @@ import urllib.request
 import urllib.parse
 import urllib.error
 import os
+import time
+from datetime import datetime, timezone
+from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("semantic-scholar")
@@ -28,6 +31,9 @@ def _env_key(*names: str) -> str:
 
 BASE_URL = "https://api.semanticscholar.org/graph/v1"
 DEFAULT_TIMEOUT = 30
+RETRIES = 3
+PAGE_SIZE = 100
+SEARCH_CAP = 1000  # paper/search rejects offset + limit > 1000
 API_KEY = _env_key("SEMANTIC_SCHOLAR_API_KEY_PLUGIN", "SEMANTIC_SCHOLAR_API_KEY")
 CONFIGURE_HINT = (
     "set the key with `/plugin configure academic-research-prisma-wiki-rag` "
@@ -55,8 +61,14 @@ def _get(endpoint: str, params: dict) -> dict:
     url = f"{BASE_URL}/{endpoint}?{query}"
     req = urllib.request.Request(url, headers=_headers())
     try:
-        with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
-            return json.loads(resp.read().decode())
+        for attempt in range(RETRIES + 1):
+            try:
+                with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
+                    return json.loads(resp.read().decode())
+            except urllib.error.HTTPError as e:
+                if e.code != 429 or attempt == RETRIES:
+                    raise
+                time.sleep(_retry_after(e, attempt))
     except urllib.error.HTTPError as e:
         msg = f"Semantic Scholar API error: HTTP {e.code} ({e.reason})"
         if e.code == 429 and not API_KEY:
@@ -66,6 +78,13 @@ def _get(endpoint: str, params: dict) -> dict:
         raise RuntimeError(f"Semantic Scholar API unreachable: {e.reason}") from e
     except TimeoutError:
         raise RuntimeError(f"Semantic Scholar API timeout after {DEFAULT_TIMEOUT}s") from None
+
+
+def _retry_after(e: urllib.error.HTTPError, attempt: int) -> float:
+    try:
+        return min(float(e.headers.get("Retry-After", "")), 60.0)
+    except (TypeError, ValueError, AttributeError):
+        return 5.0 * (attempt + 1)
 
 
 def _format_paper(p: dict) -> str:
@@ -148,6 +167,61 @@ def semantic_scholar_search(
         if output_format == "json":
             return json.dumps({"records": results, "total": total, "offset": data.get("offset", offset), "next": data.get("next")}, ensure_ascii=False)
         return _format_results(results, query, total)
+    except RuntimeError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"Unexpected error: {e}"
+
+
+@mcp.tool()
+def semantic_scholar_export(
+    query: str,
+    output_path: str,
+    year_from: int = None,
+    year_to: int = None,
+    fields_of_study: str = None,
+) -> str:
+    """
+    Download all matching Semantic Scholar records (API cap: first 1000) to a
+    JSON file and return only the counts. Use this for the PRISMA Phase 1 bulk
+    download instead of paging semantic_scholar_search or calling the API from
+    scripts: the configured API key reaches only this server, and records
+    never pass through the conversation.
+    The file holds the list of records (same contract as raw_*.json). Log the
+    returned total/downloaded/query/retrieved_at in prisma_log.md.
+
+    Args:
+        query: Search terms, same syntax as semantic_scholar_search
+        output_path: JSON file to write (e.g. raw_semantic_scholar.json in the review folder)
+        year_from: Start year
+        year_to: End year
+        fields_of_study: Comma-separated field(s), e.g. "Education,Computer Science"
+    """
+    try:
+        year_range = f"{year_from or ''}-{year_to or ''}" if (year_from or year_to) else None
+        records, total, offset, error = [], None, 0, None
+        while offset is not None and offset < SEARCH_CAP and (total is None or offset < total):
+            params = {"query": query, "year": year_range, "fieldsOfStudy": fields_of_study,
+                      "limit": min(PAGE_SIZE, SEARCH_CAP - offset), "offset": offset, "fields": FIELDS}
+            try:
+                data = _get("paper/search", params)
+            except RuntimeError as e:
+                if total is None:
+                    raise
+                error = str(e)  # keep the pages already downloaded
+                break
+            page = data.get("data", []) or []
+            total = data.get("total", 0)
+            records.extend(page)
+            offset = data.get("next") if page else None
+        path = Path(output_path).expanduser()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        summary = {"total": total, "downloaded": len(records), "query": query,
+                    "retrieved_at": datetime.now(timezone.utc).isoformat(), "error": error}
+        path.write_text(json.dumps(records, ensure_ascii=False, indent=1), encoding="utf-8")
+        summary.update(path=str(path.resolve()), complete=len(records) >= total,
+                       capped=total > SEARCH_CAP)
+        return json.dumps(summary, ensure_ascii=False)
     except RuntimeError as e:
         return f"Error: {e}"
     except Exception as e:

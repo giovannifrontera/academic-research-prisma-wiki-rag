@@ -1,7 +1,7 @@
 {
   "name": "academic-research-prisma-wiki-rag",
   "displayName": "Academic PRISMA Research Workflow",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "AI-powered systematic review, pilot study design, and preprint publication — with persistent knowledge memory",
   "author": {
     "name": "Giovanni Frontera"
