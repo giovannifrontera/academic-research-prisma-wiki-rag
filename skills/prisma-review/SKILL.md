@@ -14,6 +14,12 @@ PRISMA (Preferred Reporting Items for Systematic Reviews and Meta-Analyses) è l
 
 **Regola fondamentale:** non passare mai alla fase successiva senza approvazione esplicita dell'utente.
 
+**Rappresentazione a terminale:** mostra dati e processi in forma visiva leggibile nel terminale:
+- conteggi, confronti tra banche dati, criteri ed esclusioni per motivo → tabelle Markdown;
+- flusso PRISMA (identificazione → screening → eligibility → inclusi) → diagramma a blocchi in ASCII con i numeri di ogni passaggio;
+- sequenza delle fasi e stato di avanzamento → elenco numerato o schema a frecce.
+Il testo discorsivo resta per spiegazioni e decisioni; non mettere in tabella ciò che si dice in una frase.
+
 ---
 
 ## Persistenza dello Stato — File Obbligatori

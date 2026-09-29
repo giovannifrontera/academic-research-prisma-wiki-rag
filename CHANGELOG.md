@@ -19,6 +19,7 @@ Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguon
 #### Changed
 
 - The review skill's query rules: specific outcome terms, every concept block in every database (also when splitting OpenAIRE queries), no `title:`/`abstract:` OR on CORE, compare counts before downloading.
+- The review skill shows data and processes visually in the terminal: Markdown tables for counts and exclusions, an ASCII PRISMA flow diagram, arrow schemes for phase progress.
 - The review skill runs the bundled script in Phase 2 instead of writing a new screening script for each study, so PRISMA counts are reproducible and no exclusion criterion is invented.
 
 ### Italiano
@@ -34,6 +35,7 @@ Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguon
 #### Modificato
 
 - Regole della skill per le query: termini outcome specifici, tutti i blocchi di concetti in ogni banca dati (anche dividendo le query OpenAIRE), niente `title:`/`abstract:` in OR su CORE, confronto dei conteggi prima di scaricare.
+- La skill di revisione mostra dati e processi in forma visiva nel terminale: tabelle Markdown per conteggi ed esclusioni, diagramma di flusso PRISMA in ASCII, schemi a frecce per l'avanzamento delle fasi.
 - La skill di revisione esegue in Fase 2 lo script incluso invece di scriverne uno nuovo per ogni studio: i conteggi PRISMA sono riproducibili e nessun criterio di esclusione viene inventato.
 
 ## [1.4.4] - 2026-09-29
