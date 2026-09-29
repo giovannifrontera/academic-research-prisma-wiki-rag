@@ -164,7 +164,7 @@ Creato alla Fase 4, contiene per ogni paper incluso una scheda con annotazione c
                     Stream 2: extract_pdf_metadata.py → raw_pdf_manual.json (PRISMA 2020)
                     Pre-search: wiki query per conoscenza pre-esistente
        ↓
-[Screening]      →  Script Python: legge tutti i raw_*.json (incluso pdf_manual) → dedup cross-stream → screening_prisma.json
+[Screening]      →  scripts/prisma_screening.py (incluso): raw_*.json + pdf_manual → dedup cross-stream → filtri concordati → screening_prisma.json
        ↓
 [Eligibility]    →  Criteri su abstract → esclusioni motivate → aggiorna file
        ↓
@@ -441,26 +441,27 @@ Chiedi:
 
 ## FASE 2 — Screening
 
-### 2.1 — Script Python di deduplicazione
+### 2.1 — Deduplicazione e filtri (script incluso — non scriverne uno nuovo)
 
-Scrivi `prisma_screening.py` nella cartella di lavoro. Lo script deve:
+**Usa lo script del plugin `scripts/prisma_screening.py` (in questa skill). Non scrivere né modificare script di screening nella cartella di lavoro**: lo script incluso è testato e deterministico, così i numeri PRISMA sono riproducibili.
 
-1. Leggere tutti i JSON estratti con questa mappatura per database (incluso `raw_pdf_manual.json`):
-   - **Semantic Scholar**: `title`, `externalIds.DOI`, `year`, `abstract`, `authors[].name`
-   - **arXiv**: `title`, `doi` (fallback: `id`), `year`, `abstract`, `authors[].name`, `fulltext_url`
-   - **PubMed**: `title`, `doi` (fallback: `pmid`), `year`, `abstract`, `authors[].name`, `journal`
-   - **ERIC**: `title`, `doi` (o `id` come fallback), `pubyear`, `description` (abstract), `author[]`, `subject[]`, `source` (rivista)
-   - **OpenAIRE**: `title`, `doi`, `year`, `abstract`, `authors[]`
-   - **CORE**: `title`, `doi`, `yearPublished`, `abstract`, `authors[].name`, `journals[0].title`
-   - **DOAJ**: `bibjson.title`, `bibjson.identifier[doi]`, `bibjson.year`, `bibjson.abstract`, `bibjson.author[].name`
-   - **Zenodo**: `metadata.title`, `metadata.doi`, `metadata.publication_date[:4]`, `metadata.description`, `metadata.creators[].name`
-   - **PDF manuali**: `title`, `doi`, `year`, `abstract`, `authors[]`, `source_db: "pdf_manual"`, `file` — già normalizzati da `extract_pdf_metadata.py`
-2. Normalizzare verso: `title`, `doi`, `year`, `abstract`, `authors`, `source_db`.
-3. Deduplicare per DOI (lowercase) e poi per titolo normalizzato (alfanumerico, lowercase).
-4. Applicare i filtri concordati (anno, lingua, tipo pub.).
-4bis. Se lo studio è sigillato (vedi `.project-state.json`, `paths.sources`), chiamare `enrich_records_with_fulltext(records, Path(paths["sources"]) / "pdf-inbox")` da `skills/prisma-review/scripts/fetch_fulltext.py` sulla lista deduplicata, subito dopo la deduplicazione cross-stream e prima del salvataggio in `screening_prisma.json`. Per ogni record con un campo `fulltext_url` che supera il guard SSRF/dimensione/content-type, il PDF viene scaricato in `sources/pdf-inbox/` e il percorso locale scritto in `record["local_pdf_path"]`; altrimenti `local_pdf_path` resta `None` e il record prosegue solo con l'abstract, senza errori. Questo campo `local_pdf_path` viaggia poi dentro `screening_prisma.json` e, in caso di inclusione in eligibility, il file viene copiato (non riscaricato) in `sources/pdf-inclusi/`.
-5. Salvare in `screening_prisma.json`.
-6. Stampare il riepilogo numerico.
+1. **Censimento** delle lingue e dei tipi dichiarati, senza scrivere nulla:
+   ```
+   python "<PLUGIN_ROOT>/skills/prisma-review/scripts/prisma_screening.py" --dir "<cartella prisma>" --census
+   ```
+2. **Traduci i filtri concordati in Fase 0 in opzioni** e mostra all'utente il comando prima di eseguirlo:
+   - anni → `--year-from` / `--year-to`
+   - lingue → `--languages en,it` (codici ISO 639-1)
+   - tipi da escludere → `--exclude-types "thesis,Books,..."` con le etichette **esatte** del censimento (un record è escluso solo se *tutti* i suoi tipi dichiarati sono nella lista: "Book, Conference" resta)
+   - solo peer-reviewed → `--peer-reviewed-only` (usa lo stato dichiarato, oggi solo ERIC)
+   - arXiv solo se pubblicato → `--arxiv-published-only` (DOI, journal-ref o presenza in un'altra banca dati)
+   - studio sigillato → `--pdf-inbox "<project_root>/<paths.sources>/pdf-inbox"` per scaricare i PDF open access (`local_pdf_path` nei record)
+3. **Esegui** e riporta il riepilogo. Lo script scrive `screening_prisma.json` (record mantenuti), `screening_excluded.json` (con `exclusion_reason`) e `screening_summary.json`.
+
+Regole fisse, da non aggirare:
+- La lingua e il tipo si valutano **solo se dichiarati** nel record. I record senza lingua dichiarata restano dentro e si valutano nello screening di Fase 3: **non inferire la lingua** da titolo o abstract.
+- Nessun criterio di esclusione che l'utente non abbia concordato. Se un filtro richiesto non è supportato dallo script, chiedi all'utente: applicalo a mano in Fase 3 e documentalo nel log.
+- Deduplicazione: DOI normalizzato, poi titolo normalizzato (lettere e cifre di qualsiasi alfabeto). I record uniti conservano tutte le fonti in `source_dbs`.
 
 ```
 FASE 2 — SCREENING

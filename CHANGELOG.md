@@ -4,6 +4,28 @@ All notable plugin changes are documented here. Versions follow Semantic Version
 
 Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguono Semantic Versioning.
 
+## [1.4.5] - 2026-09-29
+
+### English
+
+#### Added
+
+- `skills/prisma-review/scripts/prisma_screening.py`: bundled, tested Phase 2 script (normalization of the eight `raw_*.json` formats and manual PDFs, DOI/title deduplication, agreed filters: years, declared languages, declared publication types, `--peer-reviewed-only`, `--arxiv-published-only`, optional open-access PDF download). `--census` lists declared languages and types. Language and type are judged only when a record declares them; nothing is inferred.
+
+#### Changed
+
+- The review skill runs the bundled script in Phase 2 instead of writing a new screening script for each study, so PRISMA counts are reproducible and no exclusion criterion is invented.
+
+### Italiano
+
+#### Aggiunto
+
+- `skills/prisma-review/scripts/prisma_screening.py`: script di Fase 2 incluso e testato (normalizzazione degli otto formati `raw_*.json` e dei PDF manuali, deduplicazione per DOI/titolo, filtri concordati: anni, lingue dichiarate, tipi dichiarati, `--peer-reviewed-only`, `--arxiv-published-only`, download facoltativo dei PDF open access). `--census` elenca lingue e tipi dichiarati. Lingua e tipo si valutano solo se il record li dichiara: niente viene dedotto.
+
+#### Modificato
+
+- La skill di revisione esegue in Fase 2 lo script incluso invece di scriverne uno nuovo per ogni studio: i conteggi PRISMA sono riproducibili e nessun criterio di esclusione viene inventato.
+
 ## [1.4.4] - 2026-09-29
 
 ### English
