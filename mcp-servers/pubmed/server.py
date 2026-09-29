@@ -18,10 +18,23 @@ from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("pubmed")
 
+
+def _env_key(*names: str) -> str:
+    """First non-empty value: the plugin dialog (/plugin configure) wins over shell env vars."""
+    for name in names:
+        value = os.environ.get(name, "").strip()
+        if value and not value.startswith("${"):  # unsubstituted manifest placeholder
+            return value
+    return ""
+
 BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 DEFAULT_TIMEOUT = 30
-API_KEY = os.environ.get("NCBI_API_KEY", "")
-EMAIL = os.environ.get("NCBI_EMAIL", "")
+API_KEY = _env_key("NCBI_API_KEY_PLUGIN", "NCBI_API_KEY")
+EMAIL = _env_key("NCBI_EMAIL_PLUGIN", "NCBI_EMAIL")
+CONFIGURE_HINT = (
+    "set the key with `/plugin configure academic-research-prisma-wiki-rag` "
+    "(or export NCBI_API_KEY) and restart Claude Code"
+)
 
 if not API_KEY:
     print(
@@ -47,7 +60,10 @@ def _request(endpoint: str, params: dict) -> bytes:
         with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
             return resp.read()
     except urllib.error.HTTPError as e:
-        raise RuntimeError(f"PubMed API error: HTTP {e.code} ({e.reason})") from e
+        msg = f"PubMed API error: HTTP {e.code} ({e.reason})"
+        if e.code == 429 and not API_KEY:
+            msg += f" — no API key configured: {CONFIGURE_HINT}"
+        raise RuntimeError(msg) from e
     except urllib.error.URLError as e:
         raise RuntimeError(f"PubMed API unreachable: {e.reason}") from e
     except TimeoutError:

@@ -1,49 +1,112 @@
 {
   "name": "academic-research-prisma-wiki-rag",
   "displayName": "Academic PRISMA Research Workflow",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "AI-powered systematic review, pilot study design, and preprint publication — with persistent knowledge memory",
-  "author": { "name": "Giovanni Frontera" },
+  "author": {
+    "name": "Giovanni Frontera"
+  },
   "repository": "https://github.com/giovannifrontera/academic-research-prisma-wiki-rag",
   "license": "AGPL-3.0",
-  "keywords": ["prisma", "systematic-review", "academic-research", "rag"],
+  "keywords": [
+    "prisma",
+    "systematic-review",
+    "academic-research",
+    "rag"
+  ],
   "defaultEnabled": true,
+  "userConfig": {
+    "core_api_key": {
+      "type": "string",
+      "title": "CORE API key",
+      "sensitive": true,
+      "default": "",
+      "description": "Recommended: without it CORE answers 429. Free at https://core.ac.uk/services/api"
+    },
+    "semantic_scholar_api_key": {
+      "type": "string",
+      "title": "Semantic Scholar API key",
+      "sensitive": true,
+      "default": "",
+      "description": "Recommended: the keyless limit is shared and often answers 429. Free at https://www.semanticscholar.org/product/api"
+    },
+    "ncbi_api_key": {
+      "type": "string",
+      "title": "NCBI (PubMed) API key",
+      "sensitive": true,
+      "default": "",
+      "description": "Optional: raises PubMed from 3 to 10 req/s. Free at https://www.ncbi.nlm.nih.gov/account/"
+    },
+    "ncbi_email": {
+      "type": "string",
+      "title": "NCBI contact email",
+      "default": "",
+      "description": "Optional: contact address NCBI asks E-utilities clients to send"
+    }
+  },
   "skills": "./skills/",
   "mcpServers": {
     "eric": {
       "command": "python",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/eric/server.py"]
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp-servers/eric/server.py"
+      ]
     },
     "openaire": {
       "command": "python",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/openaire/server.py"]
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp-servers/openaire/server.py"
+      ]
     },
     "core": {
       "command": "python",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/core/server.py"],
-      "env": { "CORE_API_KEY": "${CORE_API_KEY:-}" }
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp-servers/core/server.py"
+      ],
+      "env": {
+        "CORE_API_KEY_PLUGIN": "${user_config.core_api_key}",
+        "CORE_API_KEY": "${CORE_API_KEY:-}"
+      }
     },
     "doaj": {
       "command": "python",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/doaj/server.py"]
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp-servers/doaj/server.py"
+      ]
     },
     "zenodo": {
       "command": "python",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/zenodo/server.py"]
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp-servers/zenodo/server.py"
+      ]
     },
     "semantic-scholar": {
       "command": "python",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/semantic-scholar/server.py"],
-      "env": { "SEMANTIC_SCHOLAR_API_KEY": "${SEMANTIC_SCHOLAR_API_KEY:-}" }
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp-servers/semantic-scholar/server.py"
+      ],
+      "env": {
+        "SEMANTIC_SCHOLAR_API_KEY_PLUGIN": "${user_config.semantic_scholar_api_key}",
+        "SEMANTIC_SCHOLAR_API_KEY": "${SEMANTIC_SCHOLAR_API_KEY:-}"
+      }
     },
     "arxiv": {
       "command": "python",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/arxiv/server.py"]
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp-servers/arxiv/server.py"
+      ]
     },
     "pubmed": {
       "command": "python",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-servers/pubmed/server.py"],
-      "env": { "NCBI_API_KEY": "${NCBI_API_KEY:-}", "NCBI_EMAIL": "${NCBI_EMAIL:-}" }
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp-servers/pubmed/server.py"
+      ],
+      "env": {
+        "NCBI_API_KEY_PLUGIN": "${user_config.ncbi_api_key}",
+        "NCBI_EMAIL_PLUGIN": "${user_config.ncbi_email}",
+        "NCBI_API_KEY": "${NCBI_API_KEY:-}",
+        "NCBI_EMAIL": "${NCBI_EMAIL:-}"
+      }
     }
   }
 }

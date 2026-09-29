@@ -209,3 +209,31 @@ def test_eric_search_sends_anded_query(monkeypatch):
     module.eric_advanced_search("ai higher education", year_from=2020)
     assert seen[0] == "ai AND higher AND education"
     assert seen[1].startswith("(ai AND higher AND education) AND publicationdateyear:[2020")
+
+
+@pytest.mark.parametrize("server,plugin_var,env_var", [
+    ("core", "CORE_API_KEY_PLUGIN", "CORE_API_KEY"),
+    ("semantic-scholar", "SEMANTIC_SCHOLAR_API_KEY_PLUGIN", "SEMANTIC_SCHOLAR_API_KEY"),
+    ("pubmed", "NCBI_API_KEY_PLUGIN", "NCBI_API_KEY"),
+])
+def test_api_key_from_plugin_dialog_then_env(monkeypatch, server, plugin_var, env_var):
+    monkeypatch.setenv(plugin_var, "from-dialog")
+    monkeypatch.setenv(env_var, "from-env")
+    assert load_server(server).API_KEY == "from-dialog"
+    monkeypatch.setenv(plugin_var, "${user_config.x}")  # placeholder left unsubstituted
+    assert load_server(server).API_KEY == "from-env"
+    monkeypatch.delenv(env_var)
+    assert load_server(server).API_KEY == ""
+
+
+def test_rate_limit_without_key_tells_how_to_configure(monkeypatch):
+    import urllib.error
+    monkeypatch.delenv("CORE_API_KEY_PLUGIN", raising=False)
+    monkeypatch.delenv("CORE_API_KEY", raising=False)
+    core = load_server("core")
+
+    def too_many(*args, **kwargs):
+        raise urllib.error.HTTPError("u", 429, "Too Many Requests", {}, None)
+    monkeypatch.setattr(core.urllib.request, "urlopen", too_many)
+    with pytest.raises(RuntimeError, match="/plugin configure"):
+        core._post("search/works", {})

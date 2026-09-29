@@ -17,9 +17,22 @@ from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("semantic-scholar")
 
+
+def _env_key(*names: str) -> str:
+    """First non-empty value: the plugin dialog (/plugin configure) wins over shell env vars."""
+    for name in names:
+        value = os.environ.get(name, "").strip()
+        if value and not value.startswith("${"):  # unsubstituted manifest placeholder
+            return value
+    return ""
+
 BASE_URL = "https://api.semanticscholar.org/graph/v1"
 DEFAULT_TIMEOUT = 30
-API_KEY = os.environ.get("SEMANTIC_SCHOLAR_API_KEY", "")
+API_KEY = _env_key("SEMANTIC_SCHOLAR_API_KEY_PLUGIN", "SEMANTIC_SCHOLAR_API_KEY")
+CONFIGURE_HINT = (
+    "set the key with `/plugin configure academic-research-prisma-wiki-rag` "
+    "(or export SEMANTIC_SCHOLAR_API_KEY) and restart Claude Code"
+)
 FIELDS = "title,authors,year,venue,abstract,externalIds,paperId"
 
 if not API_KEY:
@@ -45,7 +58,10 @@ def _get(endpoint: str, params: dict) -> dict:
         with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
-        raise RuntimeError(f"Semantic Scholar API error: HTTP {e.code} ({e.reason})") from e
+        msg = f"Semantic Scholar API error: HTTP {e.code} ({e.reason})"
+        if e.code == 429 and not API_KEY:
+            msg += f" — no API key configured: {CONFIGURE_HINT}"
+        raise RuntimeError(msg) from e
     except urllib.error.URLError as e:
         raise RuntimeError(f"Semantic Scholar API unreachable: {e.reason}") from e
     except TimeoutError:

@@ -261,12 +261,11 @@ with `claude --plugin-dir .` from inside it. Skills and the eight MCP servers
 
 Create a virtual environment, activate it, and run `python -m pip install -r "<PLUGIN_ROOT>/requirements.txt"`. Start Claude Code from that same terminal so the MCP servers use the same interpreter. See [Windows/Linux setup and GPU verification](docs/models-and-setup.md).
 
-### 3. Set optional API keys
+### 3. Set API keys
 
-`CORE_API_KEY` (required for usable CORE rate limits) and
-`SEMANTIC_SCHOLAR_API_KEY` (optional, raises Semantic Scholar rate limits),
-`NCBI_API_KEY` and `NCBI_EMAIL` (optional, raise PubMed limits from 3 to 10 req/s)
-are read from the environment — export them before starting Claude Code.
+When you enable the plugin, Claude Code asks for the CORE, Semantic Scholar and NCBI (PubMed) keys and the NCBI contact email. All are free and optional, but CORE and Semantic Scholar answer `429` without a key. Keys are stored in the system keychain, never in `settings.json`. To add or change them later run `/plugin configure academic-research-prisma-wiki-rag` and restart Claude Code. If a search hits `429` without a key, the review skill stops and asks you to configure it.
+
+The environment variables `CORE_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY`, `NCBI_API_KEY` and `NCBI_EMAIL` still work as a fallback; a value from the dialog wins.
 See [Models and setup](docs/models-and-setup.md) for environment and key setup details.
 
 ### 4. Start a review
@@ -337,7 +336,7 @@ GitHub Actions runs the Python suite on `ubuntu-latest` and `windows-latest` wit
 - `memory/qdrant/`, `rag_db/`, PDFs, extraction tables and credentials are research data and must not be committed.
 - Hybrid RAG accepts only the documented eligibility filename/shape contracts and rejects explicit exclusion markers. Human confirmation remains a required pipeline gate before producing those exports.
 - The wiki HTTP context endpoint accepts loopback callers only. Remote serving requires authentication and deliberate network configuration.
-- `CORE_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY`, `NCBI_API_KEY` and GitHub credentials are read from the environment; never add them to plugin manifests or documentation.
+- API keys come from the plugin configuration dialog (system keychain) or the environment; GitHub credentials from the environment. Never add them to plugin manifests or documentation.
 - Every methodological decision remains in the PRISMA state/log files so automated retrieval does not replace the audit trail or human eligibility gate.
 
 ---

@@ -22,7 +22,7 @@ python -m pip install -r "C:/path/to/plugin/requirements.txt"
 
 If activation is unavailable, use the environment's absolute Python executable for every command (PowerShell requires `&` before a quoted executable path). Verify `python -c "import sys; print(sys.executable)"` and start Claude from this same terminal. The plugin's MCP configuration invokes `python` from PATH. On Windows, `py` can create the environment but is not the executable used by the plugin.
 
-Optional MCP credentials are read from the process environment:
+Claude Code asks for the API keys when the plugin is enabled and stores them in the system keychain; change them with `/plugin configure academic-research-prisma-wiki-rag` and restart Claude Code. The same values can instead come from the process environment (the dialog value wins):
 
 | Variable | Required | Purpose |
 |---|---|---|
@@ -31,7 +31,7 @@ Optional MCP credentials are read from the process environment:
 | `NCBI_API_KEY` | Optional | PubMed limit from 3 to 10 requests/s |
 | `NCBI_EMAIL` | Optional | Contact address NCBI asks E-utilities clients to send |
 
-Set them before starting Claude. Never put them in the plugin manifest, documentation, or a tracked `.env` file.
+Export them before starting Claude. Never put them in the plugin manifest, documentation, or a tracked `.env` file.
 
 ## GPU and model setup
 

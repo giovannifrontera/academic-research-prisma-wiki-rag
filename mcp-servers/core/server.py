@@ -18,9 +18,22 @@ from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("core")
 
+
+def _env_key(*names: str) -> str:
+    """First non-empty value: the plugin dialog (/plugin configure) wins over shell env vars."""
+    for name in names:
+        value = os.environ.get(name, "").strip()
+        if value and not value.startswith("${"):  # unsubstituted manifest placeholder
+            return value
+    return ""
+
 BASE_URL = "https://api.core.ac.uk/v3"
 DEFAULT_TIMEOUT = 30
-API_KEY = os.environ.get("CORE_API_KEY", "")
+API_KEY = _env_key("CORE_API_KEY_PLUGIN", "CORE_API_KEY")
+CONFIGURE_HINT = (
+    "set the key with `/plugin configure academic-research-prisma-wiki-rag` "
+    "(or export CORE_API_KEY) and restart Claude Code"
+)
 
 if not API_KEY:
     print(
@@ -48,7 +61,10 @@ def _post(endpoint: str, payload: dict) -> dict:
         with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
-        raise RuntimeError(f"CORE API error: HTTP {e.code} ({e.reason})") from e
+        msg = f"CORE API error: HTTP {e.code} ({e.reason})"
+        if e.code == 429 and not API_KEY:
+            msg += f" — no API key configured: {CONFIGURE_HINT}"
+        raise RuntimeError(msg) from e
     except urllib.error.URLError as e:
         raise RuntimeError(f"CORE API unreachable: {e.reason}") from e
     except TimeoutError:
@@ -107,7 +123,7 @@ def core_search(
     Search CORE for open access full-text papers.
     CORE aggregates Italian institutional repositories (IRIS network) and
     thousands of global repositories. Ideal for finding full-text OA papers.
-    Requires CORE_API_KEY environment variable (free at core.ac.uk/services/api).
+    Needs a free CORE API key (core.ac.uk/services/api): `/plugin configure` or CORE_API_KEY.
 
     Args:
         query: Search terms (e.g. "artificial intelligence secondary school")
@@ -196,7 +212,10 @@ def core_get(work_id: str, output_format: Literal["text", "json"] = "text") -> s
             with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
                 r = json.loads(resp.read().decode())
         except urllib.error.HTTPError as e:
-            raise RuntimeError(f"CORE API error: HTTP {e.code} ({e.reason})") from e
+            msg = f"CORE API error: HTTP {e.code} ({e.reason})"
+            if e.code == 429 and not API_KEY:
+                msg += f" — no API key configured: {CONFIGURE_HINT}"
+            raise RuntimeError(msg) from e
         except urllib.error.URLError as e:
             raise RuntimeError(f"CORE API unreachable: {e.reason}") from e
         except TimeoutError:

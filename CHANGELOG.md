@@ -4,6 +4,22 @@ All notable plugin changes are documented here. Versions follow Semantic Version
 
 Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguono Semantic Versioning.
 
+## [1.4.3] - 2026-09-29
+
+### English
+
+#### Added
+
+- API keys are asked by Claude Code when the plugin is enabled (`userConfig`: CORE, Semantic Scholar, NCBI key and NCBI email) and stored in the system keychain; change them with `/plugin configure academic-research-prisma-wiki-rag`. Environment variables remain a fallback.
+- A `429` from CORE, Semantic Scholar or PubMed without a key now says how to configure it, and the review skill stops to ask the user before excluding the database.
+
+### Italiano
+
+#### Aggiunto
+
+- Le chiavi API vengono chieste da Claude Code all'abilitazione del plugin (`userConfig`: chiave CORE, Semantic Scholar, NCBI ed email NCBI) e salvate nel portachiavi di sistema; si cambiano con `/plugin configure academic-research-prisma-wiki-rag`. Le variabili d'ambiente restano un'alternativa.
+- Un `429` da CORE, Semantic Scholar o PubMed senza chiave ora indica come configurarla, e la skill di revisione si ferma a chiedere all'utente prima di escludere la banca dati.
+
 ## [1.4.2] - 2026-09-28
 
 ### English

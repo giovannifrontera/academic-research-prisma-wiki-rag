@@ -299,10 +299,10 @@ Costruisci le query adattando i parametri. Per gli otto server inclusi usa `outp
 |----------|----------|-----------------|
 | `semantic-scholar` | `semantic_scholar_search` | `query`, `year_from`, `year_to`, `fields_of_study` (stringa), `limit`, `output_format="json"` |
 | `arxiv` | `arxiv_search` | `query` (termini semplici uniti in AND; sintassi `ti:`/`abs:`/`au:` accettata), `category` (es. `cs.CY`), `year_from`, `year_to`, `rows` (max 100), `offset` — attendere ~3 s tra chiamate |
-| `pubmed` | `pubmed_search` | `query` con tag `[tiab]`/`[mh]`, `year_from`, `year_to`, `article_type`, `rows` (max 200), `offset` — `NCBI_API_KEY` opzionale |
+| `pubmed` | `pubmed_search` | `query` con tag `[tiab]`/`[mh]`, `year_from`, `year_to`, `article_type`, `rows` (max 200), `offset` — chiave NCBI opzionale (`/plugin configure`) |
 | `eric` | `eric_advanced_search` | `query`, `rows` (max 200), `start`, `year_from`, `year_to`, `education_level`, `pub_type`, `language`, `title_only` |
 | `openaire` | `openaire_search` | `query`, `year_from`, `year_to`, `country="IT"` per fonti italiane |
-| `core` | `core_search` | `query`, `year_from`, `year_to`, `language="it"` — richiede `CORE_API_KEY` (free) |
+| `core` | `core_search` | `query`, `year_from`, `year_to`, `language="it"` — chiave CORE gratuita consigliata (`/plugin configure`) |
 | `doaj` | `doaj_search_articles` | `query`, `year_from`, `year_to`, `country_publisher="IT"` per riviste italiane |
 | `zenodo` | `zenodo_search` | `query`, `year_from`, `year_to`, `resource_type="publication"` |
 
@@ -312,7 +312,8 @@ Se un tool MCP restituisce errore o non risponde durante FASE 1:
 1. **Registra 0 risultati** per quel database nella tabella FASE 1
 2. **Annota in `prisma_log.md`**: "Database [nome] non disponibile in questa sessione — escluso dal corpus"
 3. **Continua con gli altri database** — non bloccare il workflow
-4. **Caso speciale `arxiv`**: se fallisce, valuta se i paper arxiv rilevanti sono già stati recuperati da `semantic-scholar` (che indicizza preprint arxiv). Se no, nota l'esclusione nella sezione Limitazioni del report finale.
+4. **Caso speciale chiave API mancante**: se l'errore contiene `no API key configured` (CORE, Semantic Scholar, PubMed), **prima di escludere il database fermati e chiedi all'utente** di registrare la chiave gratuita (link nel messaggio), inserirla con `/plugin configure academic-research-prisma-wiki-rag` e riavviare Claude Code; poi rilancia la query. Non chiedere mai di incollare la chiave in chat. Se l'utente preferisce proseguire senza, applica i punti 1–3.
+5. **Caso speciale `arxiv`**: se fallisce, valuta se i paper arxiv rilevanti sono già stati recuperati da `semantic-scholar` (che indicizza preprint arxiv). Se no, nota l'esclusione nella sezione Limitazioni del report finale.
 
 > `arxiv` è il server con maggiore instabilità storica. Se `claude mcp list` mostra `arxiv: ✗ Failed`, non avviare la query — documenta e prosegui.
 

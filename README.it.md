@@ -218,7 +218,7 @@ Avvia Claude dallo stesso terminale: i server MCP invocano `python` dal `PATH`.
 
 ### 3. Configura e avvia
 
-Le variabili opzionali sono `CORE_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY`, `NCBI_API_KEY` e `NCBI_EMAIL` (PubMed da 3 a 10 richieste/s). Apri Claude Code nel tuo workspace e avvia un nuovo studio sigillato — basta dire "iniziamo una nuova ricerca" oppure invocare `/pipeline-ricerca nuova`; entrambi eseguono:
+Quando abiliti il plugin, Claude Code chiede le chiavi gratuite CORE, Semantic Scholar e NCBI (PubMed, da 3 a 10 richieste/s) e l'email di contatto NCBI. Sono facoltative, ma senza chiave CORE e Semantic Scholar rispondono `429`. Le chiavi finiscono nel portachiavi di sistema. Per aggiungerle o cambiarle: `/plugin configure academic-research-prisma-wiki-rag`, poi riavvia Claude Code. Le variabili d'ambiente `CORE_API_KEY`, `SEMANTIC_SCHOLAR_API_KEY`, `NCBI_API_KEY` e `NCBI_EMAIL` restano valide come alternativa. Apri Claude Code nel tuo workspace e avvia un nuovo studio sigillato — basta dire "iniziamo una nuova ricerca" oppure invocare `/pipeline-ricerca nuova`; entrambi eseguono:
 
 ```bash
 python "<PLUGIN_ROOT>/scripts/study_workspace.py" create --name "Spaced repetition review" --parent "<CURRENT_WORKSPACE>"
