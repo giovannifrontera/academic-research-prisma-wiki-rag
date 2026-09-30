@@ -116,6 +116,8 @@ Ultima modifica: [data]
 -->
 ```
 
+In uno studio sigillato aggiorna anche `.project-state.json`: `study_workspace.py phase --phase pilot --status in_progress` in Fase 1 e `done` a protocollo approvato; `--phase preprint` per la Fase 6 (tabella in `pipeline-ricerca`, Stage 0).
+
 Alla ripresa di sessione, leggi **solo** il Blocco STATO; leggi le sezioni del file solo quando la fase corrispondente è in esecuzione.
 
 ---

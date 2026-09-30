@@ -11,6 +11,11 @@ import urllib.request
 import urllib.parse
 import urllib.error
 from mcp.server.fastmcp import FastMCP
+import sys
+from pathlib import Path as _Path
+
+sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+from export_util import export_pages  # noqa: E402
 
 mcp = FastMCP("eric")
 
@@ -300,6 +305,31 @@ def eric_search_by_descriptor(
         return f"Error: {e}"
     except Exception as e:
         return f"Unexpected error: {e}"
+
+
+@mcp.tool()
+def eric_export(
+    query: str,
+    output_path: str,
+    year_from: int = None,
+    year_to: int = None,
+    education_level: str = None,
+    pub_type: str = None,
+    language: str = None,
+    max_records: int = 10000,
+) -> str:
+    """
+    Download ALL matching ERIC records to a JSON file and return only the counts
+    (total, downloaded, complete, error, path). Use this for the PRISMA Phase 1
+    download instead of paging eric_advanced_search or writing scripts that call the API:
+    records never pass through the conversation. Same query syntax and filters
+    as eric_advanced_search. Log total/downloaded/query/retrieved_at in prisma_log.md.
+    """
+    return export_pages(
+        lambda i, offset, size: eric_advanced_search(
+            query, year_from, year_to, education_level, pub_type, language,
+            rows=size, start=offset, output_format="json"),
+        output_path, query, max_records, page_size=200)
 
 
 if __name__ == "__main__":

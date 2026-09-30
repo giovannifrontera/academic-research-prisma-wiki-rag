@@ -128,6 +128,16 @@ def test_ingest_workflow_ok(tmp_workspace):
     assert not (tmp_workspace / ".wiki-lock").exists()
 
 
+def test_ingest_mini_lint_ignores_pages_pending_for_later_batch(tmp_workspace):
+    batch1 = tmp_workspace / "wiki" / "concepts" / "batch-one.md.tmp"
+    batch2 = tmp_workspace / "wiki" / "concepts" / "batch-two.md.tmp"
+    batch1.write_text("# Batch One\nPrimo lotto.", encoding="utf-8")
+    batch2.write_text("# Batch Two\nSecondo lotto.", encoding="utf-8")
+    result = run_wiki(tmp_workspace, "ingest", "--pages", str(batch1), "--log", "ingest | batch 1")
+    assert result["mini_lint"] == "ok"
+    assert batch2.exists()
+
+
 def test_ingest_fails_if_lock_exists(tmp_workspace):
     # Must write the current process's PID — acquire_lock treats non-alive PIDs as stale
     (tmp_workspace / ".wiki-lock").write_text(str(os.getpid()))

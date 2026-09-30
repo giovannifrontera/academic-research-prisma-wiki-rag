@@ -40,11 +40,10 @@ def _mini_lint(workspace: str, written_paths: list, db) -> str:
         rel = os.path.relpath(path, workspace).replace("\\", "/")
         if df[df["path"] == rel].empty:
             return f"not_embedded:{rel}"
-    for root_name in ("wiki", "wiki-works"):
-        root = Path(workspace) / root_name
-        if root.is_dir():
-            for p in root.rglob("*.tmp"):
-                return f"tmp_remaining:{p}"
+        # Only this ingest's own .tmp must be consumed: other .tmp pages may be
+        # legitimately waiting for a later batch.
+        if os.path.exists(path + ".tmp"):
+            return f"tmp_remaining:{path}.tmp"
     return "ok"
 
 

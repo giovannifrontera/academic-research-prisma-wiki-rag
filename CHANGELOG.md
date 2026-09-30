@@ -4,6 +4,52 @@ All notable plugin changes are documented here. Versions follow Semantic Version
 
 Tutte le modifiche rilevanti del plugin sono documentate qui. Le versioni seguono Semantic Versioning.
 
+## [1.4.8] - 2026-09-30
+
+### English
+
+#### Added
+
+- `eric_export`, `openaire_export`, `doaj_export`, `zenodo_export` and `arxiv_export`: every database now downloads the full result set straight to `raw_<db>.json` and returns only the counts, like CORE, Semantic Scholar and PubMed. The skill no longer needs ad-hoc harvest scripts.
+- `study_workspace.py phase --project --phase --status` keeps `phases` in `.project-state.json` in step with the work; prisma-review, pipeline-ricerca and educational-pilot-design call it.
+- `pypandoc_binary` in `requirements.txt`: Word export works without a system pandoc.
+
+#### Fixed
+
+- OpenAIRE: queries with more than 4 AND/OR/NOT were rejected (HTTP 400). Each top-level AND block is now sent as its own `search` value (the API ANDs them); a single block over the limit gets a clear message.
+- Zenodo: pages above 25 records failed with HTTP 400 without a token; `rows` is now capped at 25.
+- hybrid-rag: papers with a placeholder DOI ("NR", "N/D") or a repeated DOI collapsed onto one index point. Only DOIs starting with `10.` are used as IDs, and repeated IDs get a suffix.
+- Wiki ingest: the mini-lint reported `tmp_remaining` for pages waiting for a later batch; it now checks only the pages of the current ingest.
+- Study wiki export wrote pages to `wiki-works/ricerca/` instead of the study's project folder; the skills now read `projects.<name>.path` from the study's `wiki.config.json`.
+- Docs: prisma-review description lists all 8 bundled servers; Phase 3 mentions the open access full texts; the Phase 2 PDF inbox holds candidates, only the included ones go to `pdf-inclusi`.
+- CI also runs the screening script and Semantic Scholar server tests.
+
+#### Changed
+
+- `.project-state.json`: `isolation` is now `{"mode": "sealed"}`. The `allow_external_reads/writes` flags were never read; isolation is enforced by the study path containment checks.
+
+### Italiano
+
+#### Aggiunto
+
+- `eric_export`, `openaire_export`, `doaj_export`, `zenodo_export` e `arxiv_export`: ogni banca dati scarica ora tutti i risultati direttamente in `raw_<db>.json` e restituisce solo i conteggi, come CORE, Semantic Scholar e PubMed. La skill non ha più bisogno di script di raccolta scritti sul momento.
+- `study_workspace.py phase --project --phase --status` tiene allineato `phases` in `.project-state.json`; lo richiamano prisma-review, pipeline-ricerca ed educational-pilot-design.
+- `pypandoc_binary` in `requirements.txt`: l'export Word funziona senza pandoc di sistema.
+
+#### Corretto
+
+- OpenAIRE: le query con più di 4 AND/OR/NOT venivano rifiutate (HTTP 400). Ogni blocco AND di primo livello viene ora inviato come `search` separato (l'API li combina in AND); un singolo blocco oltre il limite riceve un messaggio chiaro.
+- Zenodo: senza token le pagine oltre 25 record fallivano con HTTP 400; `rows` è ora limitato a 25.
+- hybrid-rag: i paper con DOI segnaposto ("NR", "N/D") o ripetuto finivano sullo stesso punto dell'indice. Come ID si usano solo i DOI che iniziano con `10.` e gli ID ripetuti ricevono un suffisso.
+- Ingest wiki: il mini-lint segnalava `tmp_remaining` per pagine in attesa di un lotto successivo; ora controlla solo le pagine dell'ingest corrente.
+- L'export wiki dello studio scriveva in `wiki-works/ricerca/` invece che nella cartella di progetto dello studio; le skill leggono ora `projects.<nome>.path` dal `wiki.config.json` dello studio.
+- Documentazione: la descrizione di prisma-review elenca tutti gli 8 server inclusi; la Fase 3 cita i full text open access; l'inbox PDF della Fase 2 contiene candidati, in `pdf-inclusi` vanno solo quelli degli inclusi.
+- La CI esegue anche i test dello script di screening e del server Semantic Scholar.
+
+#### Modificato
+
+- `.project-state.json`: `isolation` è ora `{"mode": "sealed"}`. I flag `allow_external_reads/writes` non venivano mai letti; l'isolamento è garantito dai controlli di contenimento dei percorsi dello studio.
+
 ## [1.4.7] - 2026-09-29
 
 ### English

@@ -50,11 +50,8 @@ def build_state(study_name: str, study_slug: str, project_root: Path) -> dict:
         "study_slug": study_slug,
         "project_root": str(project_root),
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "isolation": {
-            "mode": "sealed",
-            "allow_external_reads": False,
-            "allow_external_writes": False,
-        },
+        # Enforced by study_paths.resolve_in_study (wiki serve --project, hybrid-rag --project).
+        "isolation": {"mode": "sealed"},
         "paths": {
             "prisma": "prisma",
             "sources": "sources",
@@ -75,6 +72,23 @@ def build_state(study_name: str, study_slug: str, project_root: Path) -> dict:
             "export": "not_started",
         },
     }
+
+
+PHASE_STATUSES = ("not_started", "in_progress", "done", "ready")
+
+
+def set_phase(project_root, phase: str, status: str) -> dict:
+    root = Path(project_root)
+    state = read_state(root)
+    if phase not in state.get("phases", {}):
+        raise ValueError(f"unknown_phase: {phase}")
+    if status not in PHASE_STATUSES:
+        raise ValueError(f"unknown_status: {status}")
+    state["phases"][phase] = status
+    tmp = root / (STATE_FILENAME + ".tmp")
+    tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    os.replace(tmp, root / STATE_FILENAME)
+    return {"status": "updated", "phase": phase, "value": status}
 
 
 def read_state(project_root: Path) -> dict:
@@ -223,11 +237,18 @@ def main(argv=None) -> int:
     inspect_p = sub.add_parser("inspect")
     inspect_p.add_argument("--project", required=True)
 
+    phase_p = sub.add_parser("phase")
+    phase_p.add_argument("--project", required=True)
+    phase_p.add_argument("--phase", required=True)
+    phase_p.add_argument("--status", required=True, choices=PHASE_STATUSES)
+
     args = parser.parse_args(argv)
 
     try:
         if args.command == "create":
             result = create_study(args.name, args.parent)
+        elif args.command == "phase":
+            result = set_phase(args.project, args.phase, args.status)
         else:
             result = read_state(Path(args.project))
         print(json.dumps(result))

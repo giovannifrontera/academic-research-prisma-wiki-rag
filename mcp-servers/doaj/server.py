@@ -14,6 +14,11 @@ import urllib.request
 import urllib.parse
 import urllib.error
 from mcp.server.fastmcp import FastMCP
+import sys
+from pathlib import Path as _Path
+
+sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+from export_util import export_pages  # noqa: E402
 
 mcp = FastMCP("doaj")
 
@@ -226,6 +231,29 @@ def doaj_search_journals(
         return f"Error: {e}"
     except Exception as e:
         return f"Unexpected error: {e}"
+
+
+@mcp.tool()
+def doaj_export(
+    query: str,
+    output_path: str,
+    year_from: int = None,
+    year_to: int = None,
+    country_publisher: str = None,
+    max_records: int = 10000,
+) -> str:
+    """
+    Download ALL matching DOAJ records to a JSON file and return only the counts
+    (total, downloaded, complete, error, path). Use this for the PRISMA Phase 1
+    download instead of paging doaj_search_articles or writing scripts that call the API:
+    records never pass through the conversation. Same query syntax and filters
+    as doaj_search_articles. Log total/downloaded/query/retrieved_at in prisma_log.md.
+    """
+    return export_pages(
+        lambda i, offset, size: doaj_search_articles(
+            query, year_from, year_to, country_publisher,
+            rows=100, page=i + 1, output_format="json"),
+        output_path, query, max_records, page_size=100)
 
 
 if __name__ == "__main__":

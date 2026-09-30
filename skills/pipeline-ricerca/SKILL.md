@@ -53,6 +53,20 @@ Gestione degli esiti:
 
 Da questo punto in poi tutti i dati dello studio (prisma, sources, database, wiki-memory, synthesis, design, preprint, export) vivono sotto `project_root`; il codice del plugin resta l'unico confine esterno in lettura.
 
+**Stato delle fasi dello studio.** `phases` in `.project-state.json` va tenuto allineato al lavoro reale: all'avvio di una fase `in_progress`, alla sua conclusione approvata `done`.
+
+```bash
+python "<PLUGIN_ROOT>/scripts/study_workspace.py" phase --project "<project_root>" --phase <fase> --status in_progress|done
+```
+
+| `--phase` | `in_progress` | `done` |
+|---|---|---|
+| `prisma` | Fase 0 di prisma-review | report finale approvato (Fase 6) |
+| `rag` | Fase 5 | indice verificato con `status` |
+| `pilot` | Fase 1 di educational-pilot-design | protocollo approvato |
+| `preprint` | inizio stesura preprint | bozza approvata |
+| `export` | primo export Word | ultimo export richiesto |
+
 Per esplorare nel browser la memoria wiki dello studio (grafo, pagine, statistiche) avvia, dall'interno dello studio:
 
 ```bash

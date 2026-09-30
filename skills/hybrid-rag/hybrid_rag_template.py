@@ -874,9 +874,16 @@ def op_index_prisma(json_path: str):
     backend = _get_backend(cfg)
     pf = _paper_field
     docs, ids, metas = [], [], []
+    seen_ids = set()
 
     for i, paper in enumerate(papers):
-        raw_id = paper.get("doi") or paper.get("id") or f"paper_{i}"
+        # Placeholder DOIs ("NR", "N/D", ...) are not DOIs: only "10.x" counts,
+        # otherwise every paper without a DOI collapses onto one point.
+        doi = str(paper.get("doi") or "").strip()
+        raw_id = (doi if doi.startswith("10.") else "") or paper.get("id") or f"paper_{i}"
+        if raw_id in seen_ids:
+            raw_id = f"{raw_id}_{i}"
+        seen_ids.add(raw_id)
         # ROB-5: use hash for long IDs to avoid collisions from truncation
         _clean = str(raw_id).replace("/", "_").replace(":", "_")
         if len(_clean) > 100:

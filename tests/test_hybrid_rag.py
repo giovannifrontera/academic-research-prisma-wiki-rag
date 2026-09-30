@@ -87,6 +87,18 @@ def test_known_prisma_formats(rag, records):
     assert rag._load_config()["backend"] == "qdrant"
 
 
+def test_placeholder_and_repeated_dois_do_not_collide(rag):
+    path = Path("eligibility_prisma.json")
+    path.write_text(json.dumps([
+        {"title": "A", "doi": "NR"},
+        {"title": "B", "doi": "NR"},
+        {"title": "C", "doi": "10.1/x"},
+        {"title": "D", "doi": "10.1/x"},
+    ]))
+    rag.op_index_prisma(str(path))
+    assert rag._get_backend().count(rag.COLLECTION_PRISMA) == 4
+
+
 def test_screening_without_inclusion_proof_is_rejected(rag):
     path = Path("screening_prisma.json")
     path.write_text(json.dumps([{"title": "Unreviewed"}]))

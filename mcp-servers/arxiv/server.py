@@ -15,6 +15,11 @@ import urllib.parse
 import urllib.error
 import xml.etree.ElementTree as ET
 from mcp.server.fastmcp import FastMCP
+import sys
+from pathlib import Path as _Path
+
+sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+from export_util import export_pages  # noqa: E402
 
 mcp = FastMCP("arxiv")
 
@@ -261,6 +266,29 @@ def arxiv_get(arxiv_id: str, output_format: Literal["text", "json"] = "text") ->
         return f"Error: {e}"
     except Exception as e:
         return f"Unexpected error: {e}"
+
+
+@mcp.tool()
+def arxiv_export(
+    query: str,
+    output_path: str,
+    category: str = None,
+    year_from: int = None,
+    year_to: int = None,
+    max_records: int = 5000,
+) -> str:
+    """
+    Download ALL matching arXiv records to a JSON file and return only the counts
+    (total, downloaded, complete, error, path). Use this for the PRISMA Phase 1
+    download instead of paging arxiv_search or writing scripts that call the API:
+    records never pass through the conversation. Same query syntax and filters
+    as arxiv_search. Log total/downloaded/query/retrieved_at in prisma_log.md.
+    """
+    # arXiv asks for 3 s between API calls.
+    return export_pages(
+        lambda i, offset, size: arxiv_search(
+            query, category, year_from, year_to, rows=size, offset=offset, output_format="json"),
+        output_path, query, max_records, page_size=100, delay_s=3.0)
 
 
 if __name__ == "__main__":

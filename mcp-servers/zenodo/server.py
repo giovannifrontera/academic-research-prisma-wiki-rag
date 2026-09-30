@@ -14,6 +14,11 @@ import urllib.request
 import urllib.parse
 import urllib.error
 from mcp.server.fastmcp import FastMCP
+import sys
+from pathlib import Path as _Path
+
+sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+from export_util import export_pages  # noqa: E402
 
 mcp = FastMCP("zenodo")
 
@@ -123,7 +128,7 @@ def zenodo_search(
         resource_type: Filter by type: "publication", "dataset", "software",
                        "presentation", "poster" (default: all)
         community: Zenodo community ID to search within (e.g. "eu" for EU projects)
-        rows: Results per page (default 10, max 100)
+        rows: Results per page (default 10, max 25 without a Zenodo token)
         page: Page number (default 1)
         output_format: text preview or json envelope with complete records and total.
     """
@@ -142,6 +147,7 @@ def zenodo_search(
         if community:
             q += f" AND communities:{community}"
 
+        rows = max(1, min(rows, 25))  # anonymous API answers 400 above 25
         params = {"q": q, "size": rows, "page": page, "sort": "bestmatch", "access_right": "open"}
         data = _get(params)
         hits = data.get("hits", {}).get("hits", [])
@@ -258,6 +264,30 @@ def zenodo_get(record_id: str, output_format: Literal["text", "json"] = "text") 
         return f"Error: {e}"
     except Exception as e:
         return f"Unexpected error: {e}"
+
+
+@mcp.tool()
+def zenodo_export(
+    query: str,
+    output_path: str,
+    year_from: int = None,
+    year_to: int = None,
+    resource_type: str = None,
+    community: str = None,
+    max_records: int = 10000,
+) -> str:
+    """
+    Download ALL matching Zenodo records to a JSON file and return only the counts
+    (total, downloaded, complete, error, path). Use this for the PRISMA Phase 1
+    download instead of paging zenodo_search or writing scripts that call the API:
+    records never pass through the conversation. Same query syntax and filters
+    as zenodo_search. Log total/downloaded/query/retrieved_at in prisma_log.md.
+    """
+    return export_pages(
+        lambda i, offset, size: zenodo_search(
+            query, year_from, year_to, resource_type, community,
+            rows=25, page=i + 1, output_format="json"),
+        output_path, query, max_records, page_size=25)
 
 
 if __name__ == "__main__":

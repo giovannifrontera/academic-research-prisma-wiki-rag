@@ -18,7 +18,7 @@ Due layer, un unico indice vettoriale Qdrant:
 
 | Layer | Path (relativo al workspace) | Contenuto |
 |---|---|---|
-| **Conoscenza di progetto** | `wiki-works/ricerca/` | Paper, sintesi, note per specifici progetti PRISMA |
+| **Conoscenza di progetto** | `wiki-works/<progetto>/` (`projects.<nome>.path` in `wiki.config.json`: `wiki-works/ricerca` nella wiki predefinita, `wiki-works/<slug>` in uno studio sigillato) | Paper, sintesi, note per specifici progetti PRISMA |
 | **Conoscenza distillata** | `wiki/concepts/`, `wiki/synthesis/` | Conoscenza cross-progetto, promossa autonomamente |
 
 **Workspace** = directory assoluta configurata in `wiki/wiki.config.json → "workspace"`.
@@ -69,9 +69,9 @@ I path della tabella e quelli di `--pages` sono relativi a `<W>`, non alla direc
 
 | Tipo pagina | Path |
 |---|---|
-| Paper singolo / entità | `wiki-works/ricerca/entities/<slug>.md.tmp` |
-| Sintesi di più paper | `wiki-works/ricerca/synthesis/<slug>.md.tmp` |
-| Concetto / framework | `wiki-works/ricerca/concepts/<slug>.md.tmp` |
+| Paper singolo / entità | `wiki-works/<progetto>/entities/<slug>.md.tmp` |
+| Sintesi di più paper | `wiki-works/<progetto>/synthesis/<slug>.md.tmp` |
+| Concetto / framework | `wiki-works/<progetto>/concepts/<slug>.md.tmp` |
 
 **Fase B — Ingest:**
 ```bash
@@ -92,7 +92,7 @@ python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" ingest-pdf --workspace "<W>" --file 
 ```
 
 1. Estrae testo via pdfplumber
-2. Salva il testo grezzo in `wiki-works/ricerca/raw/YYYY-MM-DD-slug.md`
+2. Salva il testo grezzo in `wiki-works/<progetto>/raw/YYYY-MM-DD-slug.md`
 3. **Scrivi le pagine strutturate `.tmp` e chiama §ingest** — `ingest-pdf` estrae solo il testo, non crea pagine automaticamente
 
 > ⚠️ `process-raw` reindicizza solo file già in `raw/` — non crea pagine strutturate. Usa sempre il workflow §ingest completo per nuova conoscenza.
@@ -101,7 +101,7 @@ python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" ingest-pdf --workspace "<W>" --file 
 
 ## §promotion — Quando promuovere a `wiki/`
 
-Promuovi una pagina da `wiki-works/ricerca/` a `wiki/` quando vale tutte e tre:
+Promuovi una pagina da `wiki-works/<progetto>/` a `wiki/` quando vale tutte e tre:
 - Rilevante in ≥2 progetti o contesti di ricerca diversi
 - Recuperata in ≥3 query distinte
 - Contiene inferenza che va oltre una singola fonte
@@ -109,7 +109,7 @@ Promuovi una pagina da `wiki-works/ricerca/` a `wiki/` quando vale tutte e tre:
 Come promuovere:
 1. Scrivi la pagina distillata come `.tmp` in `wiki/concepts/<slug>.md.tmp` o `wiki/synthesis/<slug>.md.tmp`
 2. Chiama §ingest sul file `.tmp`
-3. Mantieni l'originale in `wiki-works/ricerca/` se contiene dettagli specifici della fonte
+3. Mantieni l'originale in `wiki-works/<progetto>/` se contiene dettagli specifici della fonte
 
 ---
 

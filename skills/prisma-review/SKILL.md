@@ -1,6 +1,6 @@
 ---
 name: prisma-review
-description: Use when conducting a systematic literature review using the PRISMA methodology. Triggers on: systematic review, literature review, PRISMA, database search strategy, inclusion/exclusion criteria, deduplication, screening, evidence synthesis. Bundled MCP servers: semantic-scholar, eric, openaire, core, doaj, zenodo. arXiv and PubMed require separately configured external servers.
+description: Use when conducting a systematic literature review using the PRISMA methodology. Triggers on: systematic review, literature review, PRISMA, database search strategy, inclusion/exclusion criteria, deduplication, screening, evidence synthesis. Bundled MCP servers: semantic-scholar, eric, openaire, core, doaj, zenodo, arxiv, pubmed.
 ---
 
 # PRISMA Systematic Review
@@ -25,6 +25,8 @@ Il testo discorsivo resta per spiegazioni e decisioni; non mettere in tabella ci
 ## Persistenza dello Stato — File Obbligatori
 
 Per evitare perdita di contesto tra sessioni, mantieni **quattro file distinti** nella cartella di lavoro. Ogni file viene aggiornato alla fine della fase corrispondente, **prima** di procedere. Il report finale si genera leggendo questi file, non dalla memoria della sessione.
+
+In uno studio sigillato aggiorna anche `phases` in `.project-state.json` con `study_workspace.py phase` (tabella in `pipeline-ricerca`, Stage 0): `prisma` → `in_progress` in Fase 0 e `done` in Fase 6, `rag` in Fase 5, `export` all'export Word.
 
 ### 1. `prisma_state.json` — stato operativo della sessione
 Tiene traccia di: query usate, numeri per fase, criteri, configurazione. Struttura:
@@ -304,17 +306,17 @@ Costruisci le query adattando i parametri. Per gli otto server inclusi usa `outp
 | Database | Tool MCP | Parametri chiave |
 |----------|----------|-----------------|
 | `semantic-scholar` | `semantic_scholar_search` (anteprima) / **`semantic_scholar_export`** (download completo su file, endpoint bulk, sintassi booleana) | `query`, `year_from`, `year_to`, `fields_of_study` (stringa), `limit`, `output_format="json"`; export: `output_path`; stessa query booleana (AND/OR/NOT) delle altre banche dati, tradotta automaticamente |
-| `arxiv` | `arxiv_search` | `query` (termini semplici uniti in AND; sintassi `ti:`/`abs:`/`au:` accettata), `category` (es. `cs.CY`), `year_from`, `year_to`, `rows` (max 100), `offset` — attendere ~3 s tra chiamate |
+| `arxiv` | `arxiv_search` (anteprima) / **`arxiv_export`** (download completo su file) | `query` (termini semplici uniti in AND; sintassi `ti:`/`abs:`/`au:` accettata), `category` (es. `cs.CY`), `year_from`, `year_to`, `rows` (max 100), `offset` — attendere ~3 s tra chiamate |
 | `pubmed` | `pubmed_search` (anteprima) / **`pubmed_export`** (download completo su file, max 9.999) | `query` con tag `[tiab]`/`[mh]`, `year_from`, `year_to`, `article_type`, `rows` (max 200), `offset` — chiave NCBI opzionale (`/plugin configure`) |
-| `eric` | `eric_advanced_search` | `query`, `rows` (max 200), `start`, `year_from`, `year_to`, `education_level`, `pub_type`, `language`, `title_only` |
-| `openaire` | `openaire_search` | `query`, `year_from`, `year_to`, `country="IT"` per fonti italiane |
+| `eric` | `eric_advanced_search` (anteprima) / **`eric_export`** (download completo su file) | `query`, `rows` (max 200), `start`, `year_from`, `year_to`, `education_level`, `pub_type`, `language`, `title_only` |
+| `openaire` | `openaire_search` (anteprima) / **`openaire_export`** (download completo su file) | `query`, `year_from`, `year_to`, `country="IT"` per fonti italiane |
 | `core` | `core_search` (anteprima) / **`core_export`** (download completo su file) | `query`, `year_from`, `year_to`, `language="it"`; export: `output_path`, `max_records` — chiave CORE gratuita consigliata (`/plugin configure`) |
-| `doaj` | `doaj_search_articles` | `query`, `year_from`, `year_to`, `country_publisher="IT"` per riviste italiane |
-| `zenodo` | `zenodo_search` | `query`, `year_from`, `year_to`, `resource_type="publication"` |
+| `doaj` | `doaj_search_articles` (anteprima) / **`doaj_export`** (download completo su file) | `query`, `year_from`, `year_to`, `country_publisher="IT"` per riviste italiane |
+| `zenodo` | `zenodo_search` (anteprima) / **`zenodo_export`** (download completo su file) | `query`, `year_from`, `year_to`, `resource_type="publication"` |
 
 **Regole per le query (precisione del corpus):**
 - Termini outcome **specifici**, mai generici da soli: `"academic performance"`, `"student performance"`, `"academic achievement"`, `"learning outcomes"` — non `performance` o `achievement` da soli, che trovano anche la *performance del modello* AI.
-- Ogni banca dati riceve **tutti i blocchi di concetti** (popolazione, intervento, contesto, outcome). Se un'API limita gli operatori (OpenAIRE), dividi in sotto-query **mantenendo il blocco outcome** in ognuna.
+- Ogni banca dati riceve **tutti i blocchi di concetti** (popolazione, intervento, contesto, outcome). OpenAIRE accetta al massimo 4 operatori per blocco: il server invia da sé ogni blocco AND come ricerca separata; solo se un singolo blocco supera 4 operatori (troppi sinonimi) riduci i sinonimi o dividi quel blocco in sotto-query, **mantenendo il blocco outcome** in ognuna.
 - **CORE:** anni e lingua passano dai parametri del tool, che li inseriscono nella query (l'API v3 ignora i filtri separati). Non combinare `title:` e `abstract:` in OR: l'API restituisce conteggi incoerenti (più del testo completo). Usa la ricerca standard o `title:` da solo.
 - Prima di scaricare, confronta i conteggi (`*_count`) con quelli attesi: un totale di ordini di grandezza sopra gli altri database indica una query troppo larga.
 
@@ -409,7 +411,7 @@ raw_doaj.json               ← lista di oggetti dal MCP doaj
 raw_zenodo.json             ← lista di oggetti dal MCP zenodo
 ```
 
-**CORE, Semantic Scholar e PubMed: usa sempre i tool di export** — `core_export(query, output_path="raw_core.json", ...)`, `semantic_scholar_export(query, output_path="raw_semantic_scholar.json", ...)` e `pubmed_export(query, output_path="raw_pubmed.json", ...)` scaricano tutte le pagine e scrivono direttamente il file, restituendo solo i conteggi (`total`, `downloaded`, `complete`, `error`). **Non scrivere script che chiamano le API CORE, Semantic Scholar o PubMed (E-utilities)**: la chiave configurata con `/plugin configure` arriva solo al server MCP, non alla shell, e uno script riceverebbe 429. Non paginare nemmeno `core_search` per il download completo: i record passerebbero dalla conversazione. Se `complete` è `false`, riporta nel log `downloaded`/`total` ed `error` (o il limite di 9.999 per PubMed, `capped`). `semantic_scholar_search` è una ricerca per rilevanza (max 1.000, niente booleani): per il download PRISMA usa sempre `semantic_scholar_export`, che accetta la stessa query booleana (AND/OR/NOT) delle altre banche dati e la traduce da sé.
+**Tutte le banche dati: usa sempre i tool di export** — `core_export`, `semantic_scholar_export`, `pubmed_export`, `eric_export`, `openaire_export`, `doaj_export`, `zenodo_export`, `arxiv_export`, ognuno con `output_path="raw_<db>.json"` e gli stessi filtri del tool di ricerca: scaricano tutte le pagine e scrivono direttamente il file, restituendo solo i conteggi (`total`, `downloaded`, `complete`, `error`). **Non scrivere script che chiamano direttamente le API delle banche dati** (i server gestiscono sintassi, limiti e paginazione; per CORE, Semantic Scholar e PubMed la chiave configurata con `/plugin configure` arriva solo al server MCP, non alla shell, e uno script riceverebbe 429). Non paginare nemmeno i tool di ricerca per il download completo: i record passerebbero dalla conversazione. Se `complete` è `false`, riporta nel log `downloaded`/`total` ed `error` (o il limite di 9.999 per PubMed, `capped`). `semantic_scholar_search` è una ricerca per rilevanza (max 1.000, niente booleani): per il download PRISMA usa sempre `semantic_scholar_export`, che accetta la stessa query booleana (AND/OR/NOT) delle altre banche dati e la traduce da sé.
 
 **Perché è critico:** Lo script di deduplicazione in Fase 2 legge questi file. Se non esistono, la Fase 2 non può partire e il corpus andrà perso al termine della sessione.
 
@@ -467,7 +469,7 @@ Chiedi:
    - tipi da escludere → `--exclude-types "thesis,Books,..."` con le etichette **esatte** del censimento (un record è escluso solo se *tutti* i suoi tipi dichiarati sono nella lista: "Book, Conference" resta)
    - solo peer-reviewed → `--peer-reviewed-only` (usa lo stato dichiarato, oggi solo ERIC)
    - arXiv solo se pubblicato → `--arxiv-published-only` (DOI, journal-ref o presenza in un'altra banca dati)
-   - studio sigillato → `--pdf-inbox "<project_root>/<paths.sources>/pdf-inbox"` per scaricare i PDF open access (`local_pdf_path` nei record)
+   - studio sigillato → `--pdf-inbox "<project_root>/<paths.sources>/pdf-inbox"` per scaricare i PDF open access (`local_pdf_path` nei record). L'inbox contiene candidati, anche studi che la Fase 3 escluderà: in Fase 5 copia in `<paths.sources>/pdf-inclusi` solo i PDF degli inclusi
 3. **Esegui** e riporta il riepilogo. Lo script scrive `screening_prisma.json` (record mantenuti), `screening_excluded.json` (con `exclusion_reason`) e `screening_summary.json`.
 
 Regole fisse, da non aggirare:
@@ -499,7 +501,7 @@ Chiedi:
 
 ## FASE 3 — Eligibility
 
-> ⚠️ **Limite pratico importante:** In questa fase si lavora esclusivamente sugli **abstract** disponibili nel JSON prodotto dalla Fase 2. Non vi è accesso automatico ai full-text dei paper. L'etichetta "full-text" nella terminologia PRISMA si riferisce allo standard metodologico (idealmente dovresti leggere il testo completo); nella pratica di questa skill, la valutazione avviene sull'abstract. Documenta questa limitazione nella sezione "Note metodologiche" del `prisma_log.md`.
+> ⚠️ **Limite pratico importante:** In questa fase si lavora esclusivamente sugli **abstract** disponibili nel JSON prodotto dalla Fase 2. I full-text sono disponibili solo per i PDF open access scaricati in Fase 2 (`local_pdf_path` nei record) e per i PDF forniti dal ricercatore: usali per i casi dubbi, ma il giudizio standard resta sull'abstract. L'etichetta "full-text" nella terminologia PRISMA si riferisce allo standard metodologico (idealmente dovresti leggere il testo completo); nella pratica di questa skill, la valutazione avviene sull'abstract. Documenta questa limitazione nella sezione "Note metodologiche" del `prisma_log.md`.
 
 ### 3.1 — Definizione criteri (PRIMA di leggere)
 
@@ -796,11 +798,13 @@ Se l'utente accetta, invoca la skill **`pandoc-export`** tramite il tool `Skill`
 
 ## Export al Wiki OpenClaw (se wiki_workspace è configurato)
 
+> **Cartella di progetto `<PROJ>`:** leggi `projects.<nome>.path` in `<wiki_workspace>/wiki.config.json` e usala in tutti i path qui sotto. In uno studio sigillato è `wiki-works/<slug-dello-studio>`; nella wiki predefinita è `wiki-works/ricerca`. Non usare `wiki-works/ricerca` in uno studio sigillato: le pagine finirebbero fuori dal progetto dello studio.
+
 Dopo la generazione del report finale, esporta la conoscenza nel wiki per **persistenza a lungo termine**: le sessioni future potranno interrogare il wiki prima di avviare una nuova ricerca (Fase 1.0), trovando già sintetizzato il lavoro svolto.
 
 ### A — Paper inclusi → Entity pages (esegui dopo Fase 4)
 
-Per ogni paper in `eligibility_prisma.json`, crea un file `<slug>.md.tmp` sotto `wiki_workspace/wiki-works/ricerca/entities/`. Template:
+Per ogni paper in `eligibility_prisma.json`, crea un file `<slug>.md.tmp` sotto `wiki_workspace/<PROJ>/entities/`. Template:
 
 ```markdown
 # [Autore/i Cognome (Anno)] — [Titolo breve]
@@ -834,7 +838,7 @@ python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" ingest --workspace "[wiki_workspace]
 
 ### B — Sintesi → Synthesis page (esegui dopo Fase 6)
 
-Crea `wiki-works/ricerca/synthesis/<slug>.md.tmp` sotto `wiki_workspace` da `prisma_synthesis.md` (non nella radice della review):
+Crea `<PROJ>/synthesis/<slug>.md.tmp` sotto `wiki_workspace` da `prisma_synthesis.md` (non nella radice della review):
 
 ```markdown
 # Sintesi PRISMA — [Domanda di ricerca principale]
@@ -863,10 +867,10 @@ Crea `wiki-works/ricerca/synthesis/<slug>.md.tmp` sotto `wiki_workspace` da `pri
 
 Poi esegui:
 ```bash
-python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" ingest --workspace "[wiki_workspace]" --pages "wiki-works/ricerca/synthesis/<slug>.md.tmp" --log "prisma-synthesis | [nome_progetto]"
+python "<PLUGIN_ROOT>/wiki/scripts/wiki.py" ingest --workspace "[wiki_workspace]" --pages "<PROJ>/synthesis/<slug>.md.tmp" --log "prisma-synthesis | [nome_progetto]"
 ```
 
-**Valuta §promotion:** se la sintesi è cross-dominio o citabile in ≥2 contesti diversi, promuovila da `wiki-works/ricerca/` a `wiki/` secondo i criteri del `wiki-core`.
+**Valuta §promotion:** se la sintesi è cross-dominio o citabile in ≥2 contesti diversi, promuovila da `<PROJ>/` a `wiki/` secondo i criteri del `wiki-core`.
 
 ---
 

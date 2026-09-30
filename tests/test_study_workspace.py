@@ -37,9 +37,7 @@ def test_build_state_shape(tmp_path):
     assert state["study_name"] == "My Study"
     assert state["study_slug"] == "my-study"
     assert state["project_root"] == str(root)
-    assert state["isolation"] == {
-        "mode": "sealed", "allow_external_reads": False, "allow_external_writes": False
-    }
+    assert state["isolation"] == {"mode": "sealed"}
     assert state["paths"] == {
         "prisma": "prisma", "sources": "sources",
         "qdrant_rag": "database/qdrant-rag", "qdrant_wiki": "database/qdrant-wiki",
@@ -159,3 +157,14 @@ def test_every_state_path_exists_after_create(tmp_path):
     root = Path(create_study("My Study", tmp_path)["project_root"])
     for key, rel in read_state(root)["paths"].items():
         assert (root / rel).is_dir(), f"paths.{key} -> {rel} does not exist"
+
+
+def test_set_phase_updates_state_and_rejects_unknown(tmp_path):
+    from scripts.study_workspace import create_study, read_state, set_phase
+    root = Path(create_study("Phase Study", tmp_path)["project_root"])
+    set_phase(root, "prisma", "done")
+    assert read_state(root)["phases"]["prisma"] == "done"
+    with pytest.raises(ValueError, match="unknown_phase"):
+        set_phase(root, "nope", "done")
+    with pytest.raises(ValueError, match="unknown_status"):
+        set_phase(root, "rag", "finished")

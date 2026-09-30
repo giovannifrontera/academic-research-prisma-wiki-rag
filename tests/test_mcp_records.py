@@ -174,6 +174,20 @@ def test_openaire_graph_api_params_and_normalization(monkeypatch):
     assert "OPEN" not in seen["bestOpenAccessRightLabel"]
 
 
+def test_openaire_splits_long_boolean_query_into_and_blocks(monkeypatch):
+    # The Graph API rejects more than 4 operators per `search`; repeated values are ANDed.
+    module = load_server("openaire")
+    seen = {}
+    monkeypatch.setattr(module, "_request", lambda params: seen.update(params) or
+                        {"header": {"numFound": 0}, "results": []})
+    module.openaire_count('(chatbot OR "generative AI" OR LLM) AND ("higher education" OR university) AND learning')
+    assert seen["search"] == ['(chatbot OR "generative AI" OR LLM)', '("higher education" OR university)', "learning"]
+    module.openaire_count('"AND OR NOT AND OR" AND x')
+    assert seen["search"] == '"AND OR NOT AND OR" AND x'
+    out = module.openaire_count("(a OR b OR c OR d OR e OR f) AND x")
+    assert out.startswith("Error:") and "at most 4" in out
+
+
 def test_doaj_url_puts_query_in_path_with_explicit_year_bounds(monkeypatch):
     # DOAJ answers 404 to ?q=, 400 to sort=score and rejects open "*" ranges.
     module = load_server("doaj")
@@ -335,3 +349,43 @@ def test_semantic_scholar_bulk_syntax_translation():
         '("generative AI" | chatbot) + ("higher education" | university) + -"K-12"'
     assert s2._to_bulk_syntax('"AND OR NOT inside quotes" AND x') == '"AND OR NOT inside quotes" + x'
     assert s2._to_bulk_syntax('("a" | b) + c') == '("a" | b) + c'  # bulk syntax passes through
+
+
+@pytest.mark.parametrize("server,tool,search", [
+    ("eric", "eric_export", "eric_advanced_search"),
+    ("openaire", "openaire_export", "openaire_search"),
+    ("doaj", "doaj_export", "doaj_search_articles"),
+    ("zenodo", "zenodo_export", "zenodo_search"),
+    ("arxiv", "arxiv_export", "arxiv_search"),
+])
+def test_export_writes_all_pages_to_file_and_returns_counts(tmp_path, monkeypatch, server, tool, search):
+    module = load_server(server)
+    corpus = [{"id": n} for n in range(250)]
+    calls = []
+
+    def fake_search(*args, **kwargs):
+        calls.append(kwargs)
+        size = kwargs["rows"]
+        start = kwargs.get("start", kwargs.get("offset"))
+        if start is None:
+            start = (kwargs["page"] - 1) * size
+        return json.dumps({"records": corpus[start:start + size], "total": len(corpus)})
+
+    monkeypatch.setattr(module, search, fake_search)
+    monkeypatch.setattr(module.export_pages.__globals__["time"], "sleep", lambda s: None)
+    out = tmp_path / "raw.json"
+    summary = json.loads(getattr(module, tool)("q", str(out), max_records=230))
+    assert summary["total"] == 250 and summary["downloaded"] == 230 and summary["complete"] is False
+    assert json.loads(out.read_text()) == corpus[:230]
+    assert all(c["output_format"] == "json" for c in calls)
+
+
+def test_export_keeps_downloaded_pages_on_later_error(tmp_path, monkeypatch):
+    module = load_server("openaire")
+    pages = iter([json.dumps({"records": [{"id": 1}] * 100, "total": 300}), "Error: HTTP 429"])
+    monkeypatch.setattr(module, "openaire_search", lambda *a, **k: next(pages))
+    summary = json.loads(module.openaire_export("q", str(tmp_path / "raw.json")))
+    assert summary["downloaded"] == 100 and summary["error"] == "Error: HTTP 429"
+    first = module.openaire_export  # an error on the first page is returned as-is
+    monkeypatch.setattr(module, "openaire_search", lambda *a, **k: "Error: down")
+    assert first("q", str(tmp_path / "x.json")) == "Error: down"

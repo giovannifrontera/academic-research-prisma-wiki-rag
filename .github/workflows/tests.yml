@@ -33,6 +33,6 @@ jobs:
           path: ~/.cache/huggingface
           key: bge-m3-${{ runner.os }}-v1
       - name: Test real wiki embeddings and cross-platform workflows
-        run: python -m pytest wiki/tests tests -q
+        run: python -m pytest wiki/tests tests skills/prisma-review/scripts mcp-servers/semantic-scholar -q
       - name: Compile Python sources
-        run: python -m compileall -q wiki/scripts mcp-servers skills/hybrid-rag
+        run: python -m compileall -q wiki/scripts mcp-servers skills scripts

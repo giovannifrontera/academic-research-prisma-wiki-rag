@@ -14,6 +14,11 @@ import urllib.request
 import urllib.parse
 import urllib.error
 from mcp.server.fastmcp import FastMCP
+import sys
+from pathlib import Path as _Path
+
+sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+from export_util import export_pages  # noqa: E402
 
 mcp = FastMCP("openaire")
 
@@ -41,8 +46,52 @@ def _request(params: dict) -> dict:
         raise RuntimeError(f"OpenAIRE API timeout after {DEFAULT_TIMEOUT}s") from None
 
 
+_MAX_OPERATORS = 4  # per `search` value; repeated `search` values are ANDed by the API
+_OPERATOR = re.compile(r"\b(AND|OR|NOT)\b")
+
+
+def _outside_quotes(text: str) -> str:
+    return re.sub(r'"[^"]*"', '""', text)
+
+
+def _split_top_level_and(query: str) -> list:
+    """Split `A AND (B OR C) AND D` into its top-level AND blocks."""
+    parts, depth, quoted, start, i = [], 0, False, 0, 0
+    while i < len(query):
+        ch = query[i]
+        if ch == '"':
+            quoted = not quoted
+        elif not quoted and ch == "(":
+            depth += 1
+        elif not quoted and ch == ")":
+            depth -= 1
+        elif (not quoted and depth == 0 and query[i:i + 5] == " AND "
+              and not query[i + 5:].startswith("NOT ")):
+            parts.append(query[start:i].strip())
+            start = i = i + 5
+            continue
+        i += 1
+    parts.append(query[start:].strip())
+    return [p for p in parts if p]
+
+
+def _search_values(query: str):
+    """OpenAIRE rejects more than 4 AND/OR/NOT in one `search`: send each
+    top-level AND block as its own `search` value instead."""
+    if len(_OPERATOR.findall(_outside_quotes(query))) <= _MAX_OPERATORS:
+        return query
+    blocks = _split_top_level_and(query)
+    too_long = [b for b in blocks if len(_OPERATOR.findall(_outside_quotes(b))) > _MAX_OPERATORS]
+    if too_long:
+        raise RuntimeError(
+            f"OpenAIRE accepts at most {_MAX_OPERATORS} AND/OR/NOT per block; this block has more: "
+            f"{too_long[0]!r}. Use fewer synonyms in that block or split it into sub-queries."
+        )
+    return blocks
+
+
 def _params(query: str, year_from=None, year_to=None, country=None, open_access=None) -> dict:
-    params = {"search": query, "type": "publication"}
+    params = {"search": _search_values(query), "type": "publication"}
     if year_from:
         params["fromPublicationDate"] = str(year_from)
     if year_to:
@@ -119,7 +168,9 @@ def openaire_search(
     """
     Search OpenAIRE for publications (European + Italian repositories).
     Use for PRISMA database search step. Plain terms are combined with AND;
-    "exact phrase", OR, NOT and parentheses are supported.
+    "exact phrase", OR, NOT and parentheses are supported. Queries with more
+    than 4 operators are sent as one search per top-level AND block (the API
+    limit is 4 per block).
 
     Args:
         query: Search terms (e.g. "chatbot education metacognition")
@@ -178,6 +229,30 @@ def openaire_count(
         return f"Error: {e}"
     except Exception as e:
         return f"Unexpected error: {e}"
+
+
+@mcp.tool()
+def openaire_export(
+    query: str,
+    output_path: str,
+    year_from: int = None,
+    year_to: int = None,
+    country: str = None,
+    open_access: bool = None,
+    max_records: int = 10000,
+) -> str:
+    """
+    Download ALL matching OpenAIRE records to a JSON file and return only the counts
+    (total, downloaded, complete, error, path). Use this for the PRISMA Phase 1
+    download instead of paging openaire_search or writing scripts that call the API:
+    records never pass through the conversation. Same query syntax and filters
+    as openaire_search. Log total/downloaded/query/retrieved_at in prisma_log.md.
+    """
+    return export_pages(
+        lambda i, offset, size: openaire_search(
+            query, year_from, year_to, country, open_access,
+            rows=100, page=i + 1, output_format="json"),
+        output_path, query, max_records, page_size=100)
 
 
 if __name__ == "__main__":

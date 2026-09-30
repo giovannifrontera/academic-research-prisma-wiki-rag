@@ -15,7 +15,11 @@ Converte i file Markdown (output di `prisma-review` o `educational-pilot-design`
 pandoc --version
 ```
 
-Se il comando fallisce → pandoc non è installato. Su Windows 11:
+Se il comando fallisce, usa il pandoc incluso nelle dipendenze del plugin (`pypandoc_binary` in `requirements.txt`, stesso venv di Claude Code):
+```bash
+python -c "import pypandoc; print(pypandoc.get_pandoc_path())"
+```
+e usa quel percorso al posto di `pandoc` nei comandi sotto. Solo se anche questo fallisce, installa pandoc a livello di sistema. Su Windows 11:
 ```bash
 winget install --id JohnMacFarlane.Pandoc
 ```
